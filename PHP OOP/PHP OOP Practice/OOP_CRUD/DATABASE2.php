@@ -50,9 +50,27 @@ class Database
             throw new Exception("Table '$table' does not exist in the database.");
         }
     }
-    public function select()
+    public function select(string $table, string $column = "*", ?string $where = null, $params = [])
     {
+        //check if table is exist in DB
+        if ($this->isTableExist($table)) {
 
+            $sql = "SELECT $column FROM $table";
+
+            //if Where is not null, append it in SQL command
+            if ($where != null) {
+                $sql .= " WHERE $where";
+            }
+
+            if ($this->mysqli->query($sql)) {
+                return true;
+            } else {
+                throw new Exception("Data Not Found ||| " . $this->mysqli->error);
+            }
+
+        } else {
+            throw new Exception("Table '$table' does not exist in the database.");
+        }
     }
     public function update(string $table, ?string $where = null, $params = [])
     {
@@ -72,7 +90,7 @@ class Database
             }
 
             if ($this->mysqli->query($sql)) {
-                array_push($this->resulterr, "Successfully Updated Data");
+                array_push($this->resulterr, $this->mysqli->affected_rows);
                 return true;
             } else {
                 throw new Exception("Data Not Inserted ||| " . $this->mysqli->error);
@@ -84,8 +102,27 @@ class Database
         }
 
     }
-    public function delete()
+    public function delete(string $table, string $column = "*", ?string $where = null)
     {
+        //check if table is exist in DB
+        if ($this->isTableExist($table)) {
+            $sql = "DELETE $column FROM $table";
+
+            //if Where is not null, append it in SQL command
+            if ($where != null) {
+                $sql .= " WHERE $where";
+            }
+
+            if ($this->mysqli->query($sql)) {
+                array_push($this->resulterr, $this->mysqli->affected_rows);
+                return true;
+            } else {
+                throw new Exception("Data Cannot be Delete ||| " . $this->mysqli->error);
+            }
+
+        } else {
+            throw new Exception("Table '$table' does not exist in the database.");
+        }
 
     }
 
@@ -115,7 +152,8 @@ class Database
     }
 
     //escape data
-    public function escapeString($data){
+    public function escapeString($data)
+    {
         return $this->mysqli->real_escape_string($data);
     }
 
