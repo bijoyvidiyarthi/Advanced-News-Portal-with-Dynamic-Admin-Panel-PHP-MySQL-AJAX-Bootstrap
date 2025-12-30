@@ -34,7 +34,7 @@ try {
     }
 
     // Perform Update - Ensure 'id' matches your DB column name
-    if ($db->delete("students", "*", "id = {$user_id}")) {
+    if ($db->delete("students",  "id = '$user_id'")) {
         $_SESSION['success'] = "User Deleted successfully.";
         header("Location: add-user.php");
         exit();
