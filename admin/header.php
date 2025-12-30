@@ -1,5 +1,6 @@
 <?php
 session_start();
+
 include "config.php";
 // This is the only include you need for all your logic!
 include_once "config2.php";

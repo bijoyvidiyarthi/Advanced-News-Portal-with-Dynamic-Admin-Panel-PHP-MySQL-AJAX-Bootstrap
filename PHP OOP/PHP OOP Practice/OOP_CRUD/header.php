@@ -19,7 +19,6 @@ if (session_status() === PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../css/font-awesome.css">
     <!-- Custom stlylesheet -->
     <link rel="stylesheet" href="../css/style.css">
-    <link rel="script" href="script.js">
 </head>
 
 <body>

@@ -9,7 +9,7 @@ class Database
     private $db_name = "test1";
 
     public $mysqli = null;
-    private $resulterr = array();
+    public $resulterr = array();
     private $conn2 = false;
 
     // Method to establish and return a database connection
@@ -50,28 +50,53 @@ class Database
             throw new Exception("Table '$table' does not exist in the database.");
         }
     }
-    public function select(string $table, string $column = "*", ?string $where = null, $params = [])
+    public function select(string $table, string $column = "*", $join = null, ?string $where = null, $order = null, $limit = null)
     {
         //check if table is exist in DB
         if ($this->isTableExist($table)) {
 
             $sql = "SELECT $column FROM $table";
 
+            if ($join != null) {
+                $sql .= " $join";
+            }
+
             //if Where is not null, append it in SQL command
             if ($where != null) {
                 $sql .= " WHERE $where";
             }
 
-            if ($this->mysqli->query($sql)) {
-                return true;
-            } else {
-                throw new Exception("Data Not Found ||| " . $this->mysqli->error);
+            if ($order != null) {
+                $sql .= " ORDER BY  $order";
             }
 
+            if ($limit != null) {
+                $sql .= " LIMIT $limit";
+            }
+
+            if ($this->show($sql)) {
+                return true;
+            } else {
+                return false;
+            }
         } else {
             throw new Exception("Table '$table' does not exist in the database.");
         }
     }
+
+    public function show($sql)
+    {
+        $query = $this->mysqli->query($sql);
+
+        if ($query) {
+            $this->resulterr = $query->fetch_all(MYSQLI_ASSOC);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+
     public function update(string $table, ?string $where = null, $params = [])
     {
         //check if table is exist in DB
