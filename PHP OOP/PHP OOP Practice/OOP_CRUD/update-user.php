@@ -45,7 +45,7 @@ try {
         // Perform Update - Ensure 'id' matches your DB column name
         if ($db->update("students", "id = {$user_id}", $data)) {
             $_SESSION['success'] = "User updated successfully.";
-            header("Location: add-user.php");
+            header("Location: users.php");
             exit();
         }
     }
@@ -79,7 +79,7 @@ try {
         strpos($e->getMessage(), 'Record Not Found') !== false ||
         $user_id <= 0 || $user_id === false
     ) {
-        header("Location: add-user.php");
+        header("Location: users.php");
     } else {
         header("Location: update-user.php?aid=" . $user_id);
     }

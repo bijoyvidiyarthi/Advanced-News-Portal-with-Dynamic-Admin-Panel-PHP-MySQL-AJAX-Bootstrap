@@ -17,7 +17,6 @@ try {
     if (isset($_POST['save'])) {
 
         // --- 1. Sanitize Inputs ---
-        // trim() removes accidental spaces; htmlspecialchars prevents XSS if you redisplay this data
         $st_name = trim($_POST['st_name']);
         $city = trim($_POST['city']);
 
@@ -29,14 +28,13 @@ try {
             throw new Exception("Please provide a valid name, city, and numeric age.");
         }
 
-        //check if username already exist or not
 
-        // --- Check existance of 'student_name' in Database and Show Record ---
-        $check_sql = "SELECT * FROM students where student_name  = {$st_name}";
-        $check_result = $db->mysqli->query($check_sql);
+        // --- Check existance of 'student_name' in Database ---
+        $db->select("students", "*", null, "student_name  = '$st_name'");
+        $check_result = $db->getResult();
 
         //Show Error if id is not  found on Database 
-        if ($check_result->num_rows > 0) {
+        if (count($check_result) > 0) {
             throw new Exception("🔍Username Already used, try a new username.");
         }
 
@@ -48,15 +46,12 @@ try {
 
         if ($db->insert('students', $data)) {
             $_SESSION['success'] = "Data Inserted Successfully";
-            header("Location: add-user.php");
+            header("Location: users.php");
             exit();
         }
     }
 
 } catch (Exception $e) {
-
-    // If it's a connection or ID error, go back to main page. 
-    // If it's an update error, stay on this page to show the error.
 
     $_SESSION['error'] = $e->getMessage();
     header("Location: add-user.php");

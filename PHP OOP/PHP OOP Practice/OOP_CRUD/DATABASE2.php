@@ -8,9 +8,15 @@ class Database
     private $db_pass = "";
     private $db_name = "test1";
 
+    //Properties for Pagination
     public $mysqli = null;
-    public $resulterr = array();
+    private $resulterr = array();
     private $conn2 = false;
+
+    //Properties for Pagination
+    private $limit;
+    private $offset;
+    private $page;
 
     // Method to establish and return a database connection
     public function __construct()
@@ -30,32 +36,29 @@ class Database
         }
     }
 
-    public function insert(string $table, $params = array())
+    //method to set pagination
+    public function setPagination($limit)
     {
-        if ($this->isTableExist($table)) {
+        $this->limit = (int) $limit;
+        $this->page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
+        if ($this->page < 1)
+            $this->page = 1;
 
-            $table_columns = implode(', ', array_keys($params));
-            $table_values = implode("', '", array_values($params));
+        //Calculate Offset
+        $this->offset = ($this->page - 1) * $this->limit;
 
-            $sql = "INSERT INTO $table($table_columns) VALUES ('$table_values')";
+        //return the offset
+        return $this->offset;
 
-            if ($this->mysqli->query($sql)) {
-                array_push($this->resulterr, "Successfully Inserted Data");
-                return true;
-            } else {
-                throw new Exception("Data Not Inserted ||| " . $this->mysqli->error);
-            }
-
-        } else {
-            throw new Exception("Table '$table' does not exist in the database.");
-        }
     }
-    public function select(string $table, string $column = "*", $join = null, ?string $where = null, $order = null, $limit = null)
+
+    //select method
+    public function select(string $table, string $columns = "*", $join = null, ?string $where = null, $order = null, $usePagination = false)
     {
         //check if table is exist in DB
         if ($this->isTableExist($table)) {
 
-            $sql = "SELECT $column FROM $table";
+            $sql = "SELECT $columns FROM $table";
 
             if ($join != null) {
                 $sql .= " $join";
@@ -70,18 +73,79 @@ class Database
                 $sql .= " ORDER BY  $order";
             }
 
-            if ($limit != null) {
-                $sql .= " LIMIT $limit";
+            if ($usePagination == true && isset($this->limit)) {
+                $sql .= " LIMIT $this->limit OFFSET $this->offset";
             }
-
-            if ($this->show($sql)) {
-                return true;
-            } else {
-                return false;
-            }
+            return $this->show($sql);
         } else {
-            throw new Exception("Table '$table' does not exist in the database.");
+            return false;
         }
+    }
+
+    public function pagination(string $table, $join = null, ?string $where = null)
+    {
+        if (!$this->isTableExist($table) || !isset($this->limit))
+            return false;
+
+        //-------Count Total Students-----
+        $sql = "SELECT COUNT(id) AS total_students FROM $table";
+        if ($join != null) {
+            $sql .= " $join";
+        }
+        if ($where != null) {
+            $sql .= " WHERE $where";
+        }
+
+        //-----Count Total Pages---------
+        $query = $this->mysqli->query($sql);
+        // Check if query actually succeeded before fetching
+        if (!$query) {
+            throw new Exception("Pagination Count Query Failed: " . $this->mysqli->error);
+        }
+        $Countresult = $query->fetch_assoc();
+        $TotalStudents = $Countresult['total_students'];
+        $total_Pages = ceil($TotalStudents / $this->limit);
+
+        if ($total_Pages > 1):
+            //Previous Page
+            if ($this->page > 1):
+                echo '<li class="prev"><a href=" ' . $_SERVER['PHP_SELF'] . '?page=' . ($this->page - 1) . ' " >Prev</a></li>';
+            endif;
+
+            //Show Page numbers
+            $range = 2;
+            //eg. if current page is 3, start will 3-2 = 1 (pagination: ..12 3 45)
+            $start = max(1, $this->page - $range);
+            $end = min($total_Pages, $this->page + $range);
+
+            // Start Ellipsis
+            if ($start > 1):
+                echo '<li><a href="' . $_SERVER['PHP_SELF'] . '?page=1">1</a></li>';
+                if ($start > 2)
+                    echo '<li><span>...</span></li>';
+            endif;
+
+            // Truncation logic (first page and ellipsis)
+            for ($i = $start; $i <= $end; $i++):
+                $active = ($i == $this->page) ? "active" : "";
+                echo '<li class=" ' . $active . ' "><a href=" ' . $_SERVER['PHP_SELF'] . '?page=' . $i . ' " >' . $i . '</a></li>';
+            endfor;
+
+
+            // End Ellipsis
+            if ($end < $total_Pages):
+                if ($end < $total_Pages - 1)
+                    echo '<li><span>...</span></li>';
+                echo '<li><a href="' . $_SERVER['PHP_SELF'] . '?page=' . $total_Pages . '">' . $total_Pages . '</a></li>';
+            endif;
+
+            //next page
+            if (1 < $total_Pages && $this->page < $total_Pages):
+                echo '<li class="next"><a href=" ' . $_SERVER['PHP_SELF'] . '?page=' . ($this->page + 1) . ' " >Next</a></li>';
+            endif;
+        else:
+            echo "<p> All Records Are Shown</p>";
+        endif;
     }
 
     public function show($sql)
@@ -91,9 +155,28 @@ class Database
         if ($query) {
             $this->resulterr = $query->fetch_all(MYSQLI_ASSOC);
             return true;
-        } else {
-            return false;
         }
+        return false;
+    }
+
+
+    public function insert(string $table, $params = array())
+    {
+        if (!$this->isTableExist($table))
+            return false;
+
+        $table_columns = implode(', ', array_keys($params));
+        $table_values = implode("', '", array_values($params));
+
+        $sql = "INSERT INTO $table($table_columns) VALUES ('$table_values')";
+
+        if ($this->mysqli->query($sql)) {
+            array_push($this->resulterr, "Successfully Inserted Data");
+            return true;
+        } else {
+            throw new Exception("Data Not Inserted ||| " . $this->mysqli->error);
+        }
+
     }
 
 
@@ -127,11 +210,11 @@ class Database
         }
 
     }
-    public function delete(string $table, string $column = "*", ?string $where = null)
+    public function delete(string $table, ?string $where = null)
     {
         //check if table is exist in DB
         if ($this->isTableExist($table)) {
-            $sql = "DELETE $column FROM $table";
+            $sql = "DELETE FROM $table";
 
             //if Where is not null, append it in SQL command
             if ($where != null) {
@@ -161,12 +244,7 @@ class Database
         $checkResult = $this->mysqli->query($checkSql); // in Raw PHP: $conn->query($sql)
 
         //check if table exist or not
-        if ($checkResult && $checkResult->num_rows > 0) {
-            return true;
-        } else {
-            array_push($this->resulterr, $table . "Doesn't Exist");
-            return false;
-        }
+        return ($checkResult && $checkResult->num_rows > 0);
     }
 
     public function getResult()
