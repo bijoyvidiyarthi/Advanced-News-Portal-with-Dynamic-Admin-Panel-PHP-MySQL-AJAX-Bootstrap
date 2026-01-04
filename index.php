@@ -76,7 +76,7 @@ if (!$conn) {
                             FROM post p
                             LEFT JOIN category c ON p.category = c.category_id
                             LEFT JOIN user u ON p.author = u.user_id
-                            ORDER BY p.post_id DESC
+                            ORDER BY p.post_date ASC
                             LIMIT {$limit} OFFSET {$offset}";
 
                         $result = mysqli_query($conn, $sql);

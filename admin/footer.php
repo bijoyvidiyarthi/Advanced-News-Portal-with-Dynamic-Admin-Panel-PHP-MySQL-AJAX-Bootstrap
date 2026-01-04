@@ -1,4 +1,5 @@
 <!-- Footer -->
+<script src="../script.js"> </script>
 <div id="footer">
     <div class="container">
         <div class="row">

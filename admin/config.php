@@ -10,7 +10,7 @@
 $hostname = "localhost";
 $username = "root";
 $password = "";
-$database = "news-site1";
+$database = "news-site";
 
 $conn = mysqli_connect($hostname, $username, $password, $database) or die("Connection Failed");
 

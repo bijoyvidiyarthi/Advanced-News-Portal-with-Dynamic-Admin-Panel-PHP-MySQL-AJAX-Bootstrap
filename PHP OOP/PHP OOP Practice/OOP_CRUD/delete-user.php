@@ -25,16 +25,16 @@ try {
     }
 
     // --- Check existance of ID in Database and Show Record ---
-    $check_sql = "SELECT * FROM students where id = {$user_id}";
-    $check_result = $db->mysqli->query($check_sql);
+    $db->select("students", "*", null, "id = $user_id");
+    $check_result = $db->getResult();
 
     //Show Error if id is not  found on Database 
-    if (!$check_result || $check_result->num_rows == 0) {
+    if (!$check_result || count($check_result) == 0) {
         throw new Exception("🔍 **Record Not Found:** We could not find a user with ID **" . htmlspecialchars($user_id) . "** to delete. Please verify the ID.");
     }
 
     // Perform Update - Ensure 'id' matches your DB column name
-    if ($db->delete("students",  "id = '$user_id'")) {
+    if ($db->delete("students", "id = '$user_id'")) {
         $_SESSION['success'] = "User Deleted successfully.";
         header("Location: add-user.php");
         exit();

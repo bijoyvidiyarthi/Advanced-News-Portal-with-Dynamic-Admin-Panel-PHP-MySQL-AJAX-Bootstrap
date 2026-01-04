@@ -41,6 +41,7 @@ class Database
     {
         $this->limit = (int) $limit;
         $this->page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
+
         if ($this->page < 1)
             $this->page = 1;
 
@@ -82,12 +83,14 @@ class Database
         }
     }
 
+
+    //pagination method 
     public function pagination(string $table, $join = null, ?string $where = null)
     {
         if (!$this->isTableExist($table) || !isset($this->limit))
             return false;
 
-        //-------Count Total Students-----
+        //---Count Total Students---
         $sql = "SELECT COUNT(id) AS total_students FROM $table";
         if ($join != null) {
             $sql .= " $join";
@@ -96,8 +99,10 @@ class Database
             $sql .= " WHERE $where";
         }
 
-        //-----Count Total Pages---------
+        //---Count Total Pages----
         $query = $this->mysqli->query($sql);
+
+
         // Check if query actually succeeded before fetching
         if (!$query) {
             throw new Exception("Pagination Count Query Failed: " . $this->mysqli->error);
@@ -106,6 +111,9 @@ class Database
         $TotalStudents = $Countresult['total_students'];
         $total_Pages = ceil($TotalStudents / $this->limit);
 
+
+
+        //pagination View
         if ($total_Pages > 1):
             //Previous Page
             if ($this->page > 1):
@@ -114,7 +122,7 @@ class Database
 
             //Show Page numbers
             $range = 2;
-            //eg. if current page is 3, start will 3-2 = 1 (pagination: ..12 3 45)
+            //eg. if current page is 3, start will 3-2 = 1 (pagination: ..12 3 45..)
             $start = max(1, $this->page - $range);
             $end = min($total_Pages, $this->page + $range);
 

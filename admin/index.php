@@ -1,5 +1,10 @@
 <?php
+// 1. Set session cookie to last 1 month (2,592,000 seconds)
+$session_lifetime = 30 * 24 * 60 * 60;
+session_set_cookie_params($session_lifetime);
 session_start();
+
+// Redirect if already logged in
 if (isset($_SESSION['is_logged_in']) && $_SESSION['is_logged_in'] === true) {
     $_SESSION['error'] = "You are logged in.";
     header("Location: post.php");
@@ -50,6 +55,10 @@ if (isset($_SESSION['is_logged_in']) && $_SESSION['is_logged_in'] === true) {
                             <input type="password" name="password" class="form-control" placeholder="" required>
                         </div>
                         <input type="submit" name="login" class="btn btn-primary" value="login" />
+
+                        <div class="text-center">
+                            New here? <a href="registration.php">Create an account</a>
+                        </div>
                     </form>
                     <!-- /Form  End -->
                     <?php
@@ -58,37 +67,49 @@ if (isset($_SESSION['is_logged_in']) && $_SESSION['is_logged_in'] === true) {
                     if (isset($_POST['login'])) {
                         include "config.php";
                         $username = mysqli_real_escape_string($conn, $_POST['username']);
-                        $password = mysqli_real_escape_string($conn, md5($_POST['password']));
+                        $password = $_POST['password'];
 
 
-                        $sql = "SELECT user_id, username, role
-                                FROM user
-                                WHERE username ='{$username}' AND password ='{$password}'";
+                        // Use Prepared Statement for login
+                        $sql = "SELECT user_id, username, password, role FROM user WHERE username = ?";
+                        $stmt = mysqli_prepare($conn, $sql);
+                        mysqli_stmt_bind_param($stmt, "s", $username);
+                        mysqli_stmt_execute($stmt);
+                        $result = mysqli_stmt_get_result($stmt);
 
 
-                        $result = mysqli_query($conn, $sql);
 
 
-                        if (!$result) {
-                            echo "Query Failed.";
-                            $_SESSION['error'] = "Something went wrong. Please try again.";
-                            mysqli_close($conn);
-                            exit();
-                        } else {
-                            if (mysqli_num_rows($result) > 0) {
-                                while ($row = mysqli_fetch_assoc($result)) {
-                                    $_SESSION['user_id'] = $row['user_id'];
-                                    $_SESSION['username'] = $row['username'];
-                                    $_SESSION['user_role'] = $row['role'];
-                                    $_SESSION['is_logged_in'] = true;
-                                    header("Location: post.php");
-                                }
+                        if ($row = mysqli_fetch_assoc($result)) {
+                            // --- DEBUGGING START ---
+                            // echo "Entered: " . $password . "<br>";
+                            // echo "From DB: " . $row['password'] . "<br>";
+                            // --- DEBUGGING END ---
+                            // SECURE CHECK: Compare raw password with hashed password from DB
+                            if (password_verify($password, $row['password'])) {
 
+                                $_SESSION['user_id'] = $row['user_id'];
+                                $_SESSION['username'] = $row['username'];
+                                $_SESSION['user_role'] = $row['role'];
+                                $_SESSION['is_logged_in'] = true;
+
+                                // Set initial activity timestamp
+                                $_SESSION['last_activity'] = time();
+
+                                header("Location: post.php");
+                                exit();
                             } else {
-                                $_SESSION['error'] = "Username and Password are not matched.";
-                                header("Location: " . $_SERVER['PHP_SELF']);
+
+                                $_SESSION['error'] = "Invalid Username or Password.";
+                                header("Location: index.php");
+                                exit();
                             }
-                            mysqli_close($conn);
+                        } else {
+
+
+                            $_SESSION['error'] = "Invalid Username or Password.";
+                            header("Location: index.php");
+                            exit();
                         }
                     }
                     ?>

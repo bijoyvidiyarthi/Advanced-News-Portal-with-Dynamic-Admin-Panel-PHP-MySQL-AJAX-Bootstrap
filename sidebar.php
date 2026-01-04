@@ -38,7 +38,7 @@
                     c.category_name, p.category
                     FROM post p
                     LEFT JOIN category c ON p.category = c.category_id
-                    ORDER BY p.post_date DESC 
+                    ORDER BY p.post_date ASC 
                     LIMIT 5";
 
             $result = mysqli_query($conn, $sql);

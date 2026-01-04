@@ -70,6 +70,7 @@ if (isset($_GET['id'])) {
     }
 
     // --- Delete Records---
+    
     //Delete SQL
     $sql = "DELETE FROM post where post_id = {$post_id};";
     $sql .= "UPDATE category SET post = post - 1 WHERE category_id = {$cat_id};";

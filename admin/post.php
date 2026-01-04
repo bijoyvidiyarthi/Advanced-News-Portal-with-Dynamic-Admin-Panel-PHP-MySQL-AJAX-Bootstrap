@@ -42,7 +42,7 @@ if (!$conn) {
     $total_pages = 0;
 
     if ($countResult && mysqli_num_rows($countResult) > 0) {
-        // Get total number of users
+        // Get total number of posts
         $countrow = mysqli_fetch_assoc($countResult); //here row is an associative array that contains total_users as key
         $total_posts = $countrow['total_posts'];
         $total_pages = ceil($total_posts / $limit); //eg: 45/10 =4.5 =>5 page, 0.4= 1 page
@@ -89,9 +89,12 @@ if (!$conn) {
                             FROM post p
                             LEFT JOIN category c ON p.category = c.category_id
                             LEFT JOIN user u ON p.author = u.user_id
-                            ORDER BY p.post_id ASC
                             $filter_sql
+                            ORDER BY p.post_id ASC                        
                             LIMIT {$limit} OFFSET {$offset}";
+
+                            // print_r($sql);
+                            // echo $sql;
 
                     $result = mysqli_query($conn, $sql);
 

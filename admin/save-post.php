@@ -5,13 +5,21 @@ include "config.php";
 //check if the form is submitted
 if (isset($_POST['submit']) && $_FILES['fileToUpload']['error'] === 0) {
 
+
     // Initialize filename in case upload fails or isn't present
     $file_name = "";
+    $errors = array();
+
+    // CSRF Validation
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        $_SESSION['error'] = "Security token mismatch.";
+        header("Location: post.php");
+        mysqli_close($conn);
+        exit();
+    }
 
     //check if file is uploaded or not
     if (isset($_FILES['fileToUpload'])) {
-
-        $errors = array();
 
         $file_name = $_FILES['fileToUpload']['name'];
         $file_size = $_FILES['fileToUpload']['size'];
@@ -36,9 +44,11 @@ if (isset($_POST['submit']) && $_FILES['fileToUpload']['error'] === 0) {
             $errors[] = "File size must be 2mb or lower.";
         }
 
-        $new_name = time() . "-". basename($file_name);
-        $target = "upload/" . $new_name ;
-        $image_name = $new_name;
+        $new_name = time() . "-" . basename($file_name);
+        $target = "upload/" . $new_name;
+        $image_name = $new_name; 
+        //we can't input the $new_name as image name directly, cause, it will change by time every moment. 
+        //so, the filename saved in the db and the Device folder cannot be matched...
     }
 
     //now set all the values from the form to variables
@@ -54,7 +64,7 @@ if (isset($_POST['submit']) && $_FILES['fileToUpload']['error'] === 0) {
     if (empty($post_title) || empty($postDesc) || empty($category) || empty($author) || empty($image_name)) {
         $errors[] = "All fields are required.";
     }
-    
+
     //if there are no errors then proceed the insert query
     if (empty($errors) == true) {
         move_uploaded_file($file_tmp, $target);
@@ -67,6 +77,7 @@ if (isset($_POST['submit']) && $_FILES['fileToUpload']['error'] === 0) {
             exit();
         }
     }
+
     $sql = "INSERT INTO post (title, description, category, post_date, author, post_img) 
             VALUES ('$post_title', '$postDesc','$category','$date','$author','$image_name');";
 

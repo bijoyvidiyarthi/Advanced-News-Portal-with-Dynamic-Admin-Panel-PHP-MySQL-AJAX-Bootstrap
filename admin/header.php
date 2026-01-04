@@ -1,25 +1,18 @@
 <?php
 session_start();
-
 include "config.php";
-// This is the only include you need for all your logic!
-include_once "config2.php";
+include "check-login.php"; //check if logged in or not
 
-//check if logged in or not
-Auth::checkLogin();
+//get username and role default;
+$username = "Guest";
+$role = "Guest"; // Default value
 
-//get username
-if (isset($_SESSION['username']) && isset( $_SESSION['user_role'])) {
+if (isset($_SESSION['username']) && isset($_SESSION['user_role'])) {
     $username = htmlspecialchars($_SESSION['username']);
-    $user_role = htmlspecialchars($_SESSION['user_role']);
-    if ($user_role == 1) {
-        $role = "Admin";
-    } else {
-        $role = "Normal User";
-    }
-} else {
-    $username = "Guest";
+    $user_role = (int)$_SESSION['user_role'];
+    $role = ($user_role == 1) ? "Admin" : "Normal User";
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,6 +27,8 @@ if (isset($_SESSION['username']) && isset( $_SESSION['user_role'])) {
     <link rel="stylesheet" href="../css/bootstrap.min.css" />
     <!-- Font Awesome Icon -->
     <link rel="stylesheet" href="../css/font-awesome.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
     <!-- Custom stlylesheet -->
     <link rel="stylesheet" href="../css/style.css">
 </head>
@@ -47,20 +42,20 @@ if (isset($_SESSION['username']) && isset( $_SESSION['user_role'])) {
             <div class="row">
                 <!-- LOGO -->
                 <div class="col-md-2">
-                    <?php 
+                    <?php
 
-                    if ($conn){
+                    if ($conn) {
                         $sql = "SELECT logo from settings";
                         $result = mysqli_query($conn, $sql);
 
-                        if(mysqli_num_rows($result) > 0){
+                        if (mysqli_num_rows($result) > 0) {
                             $row = mysqli_fetch_assoc($result);
                             $logo = $row['logo'];
                             // echo $logo;
                         }
                     }
                     ?>
-                    <a href="post.php"><img class="logo" src="images/<?php echo htmlspecialchars($logo);?>"></a>
+                    <a href="post.php"><img class="logo" src="images/<?php echo htmlspecialchars($logo); ?>"></a>
                 </div>
                 <!-- /LOGO -->
                 <!-- LOGO-Out -->
@@ -82,16 +77,16 @@ if (isset($_SESSION['username']) && isset( $_SESSION['user_role'])) {
                         <li>
                             <a href="post.php">Post</a>
                         </li>
-                        <?php if ($role === "Admin") : ?>
-                        <li>
-                            <a href="category.php">Category</a>
-                        </li>
-                        <li>
-                            <a href="users.php">Users</a>
-                        </li>
-                        <li>
-                            <a href="settings.php">Settings</a>
-                        </li>
+                        <?php if ($role === "Admin"): ?>
+                            <li>
+                                <a href="category.php">Category</a>
+                            </li>
+                            <li>
+                                <a href="users.php">Users</a>
+                            </li>
+                            <li>
+                                <a href="settings.php">Settings</a>
+                            </li>
                         <?php endif; ?>
                     </ul>
                 </div>
