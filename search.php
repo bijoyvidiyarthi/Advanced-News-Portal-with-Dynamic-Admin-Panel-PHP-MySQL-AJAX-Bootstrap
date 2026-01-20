@@ -22,6 +22,8 @@ if (isset($_GET['search']) && !empty(trim($_GET['search']))) {
     exit();
 }
 
+
+
 //--- Pagination Setup---
 $limit = 5;
 // Set the current page number, ensuring it's an integer and at least 1
@@ -63,15 +65,15 @@ if ($countResult && mysqli_num_rows($countResult) > 0) {
     $total_posts = $countrow['total_posts'];
     $total_pages = ceil($total_posts / $limit); //eg: 45/10 =4.5 =>5 page, 0.4= 1 page
 
+}
 
-    // Ensure the current page doesn't exceed the total pages 
-    // (e.g., if a record was deleted)
-    if ($page > $total_pages && $total_pages > 0) {
-        //if anyone try to access page more than total pages then redirect to last page and show error
-        $_SESSION['error'] = "⚠️ **Page Not Found:** You tried to access page " . ($page) . ", but it does not exist.";
-        header("Location: search.php?search=" . $clean_search);
-        exit(); // CRITICAL: Stop script so redirect happens immediately
-    }
+// Ensure the current page doesn't exceed the total pages 
+// (e.g., if a record was deleted)
+if ($page > $total_pages && $total_pages > 0) {
+    //if anyone try to access page more than total pages then redirect to last page and show error
+    $_SESSION['error'] = "⚠️ **Page Not Found:** You tried to access page " . ($page) . ", but it does not exist.";
+    header("Location: search.php?search=" . $clean_search);
+    exit(); // CRITICAL: Stop script so redirect happens immediately
 }
 
 
@@ -79,7 +81,7 @@ if ($countResult && mysqli_num_rows($countResult) > 0) {
 //--- Validate Search Term Existence ---
 
 if ($total_posts > 0) {
-    $check_sql = "SELECT p.post_id, p.title, p.description, p.post_date, p.post_img, 
+    $check_sql = "SELECT p.post_id, p.title, p.description, p.published_at, p.post_img, 
             u.username, p.author, c.category_name, p.category
             FROM post p
             LEFT JOIN category c ON p.category = c.category_id
@@ -88,7 +90,7 @@ if ($total_posts > 0) {
             OR p.description LIKE '%{$clean_search}%' 
             OR u.username LIKE '%{$clean_search}%' 
             OR c.category_name LIKE '%{$clean_search}%'
-            ORDER BY p.post_id DESC
+            ORDER BY p.published_at DESC
             LIMIT {$limit} OFFSET {$offset}";
     $search_result = mysqli_query($conn, $check_sql);
 }
@@ -122,7 +124,7 @@ if ($total_posts > 0) {
                                 $user_id = $row['author'];
                                 $category_id = $row['category'];
                                 $category = $row['category_name'];
-                                $date = $row['post_date'];
+                                $date = $row['published_at'];
                                 $post_img = $row['post_img'];
 
                                 ?>
@@ -164,17 +166,16 @@ if ($total_posts > 0) {
                                                     </span>
                                                     <span>
                                                         <i class="fa fa-calendar" aria-hidden="true"></i>
-                                                        <?php echo htmlspecialchars($date); ?>
+                                                        <?php echo date("d M, Y", strtotime($date)); ?>
                                                     </span>
                                                 </div>
-                                                <p class="description">
+                                                <div class="description posts_container_desc">
                                                     <?php
                                                     // 1. Get raw data and TRIM the search term to remove accidental trailing spaces
                                                     $raw_description = $row['description'];
 
-
-                                                    // 2. Truncate to 130 characters
-                                                    $short_desc = substr($raw_description, 0, 130);
+                                                    // 2. Truncate to 160 characters
+                                                    $short_desc = substr(strip_tags($raw_description), 0, 160) . '...';
 
                                                     // 3. Escape for security
                                                     $escaped_desc = htmlspecialchars($short_desc);
@@ -197,8 +198,8 @@ if ($total_posts > 0) {
                                                     }
 
                                                     // 5. Output
-                                                    echo nl2br($highlighted_text) . '...'; ?>
-                                                </p>
+                                                    echo $highlighted_text; ?>
+                                                </div>
                                                 <a class='read-more pull-right' href='single.php?id=<?php echo $id; ?>'>read
                                                     more</a>
                                             </div>
@@ -211,7 +212,6 @@ if ($total_posts > 0) {
                     else:
                         echo "<h3>No posts found matching your search criteria.</h3>";
                     endif;
-                    mysqli_close($conn);
                     ?>
 
                     <ul class='pagination'>
@@ -265,4 +265,8 @@ if ($total_posts > 0) {
         </div>
     </div>
 </div>
-<?php include 'footer.php'; ?>
+
+<?php
+mysqli_close($conn);
+include 'footer.php';
+?>

@@ -109,13 +109,13 @@ if (!$conn) {
                     //first check if connection is established or not
                     if ($conn):
                         // Fetch users from database and display here 
-                        $sql = "SELECT p.post_id, p.title, p.description, p.post_date, p.post_img, 
+                        $sql = "SELECT p.post_id, p.title, p.description, p.published_at, p.post_img, 
                             u.username, p.author, c.category_name, p.category
                             FROM post p
                             LEFT JOIN category c ON p.category = c.category_id
                             LEFT JOIN user u ON p.author = u.user_id
                             WHERE p.author = {$user_id}
-                            ORDER BY p.post_id DESC
+                            ORDER BY p.published_at DESC
                             LIMIT {$limit} OFFSET {$offset}";
 
                         $result = mysqli_query($conn, $sql);
@@ -142,7 +142,7 @@ if (!$conn) {
                                     $user_id = $row['author'];
                                     $category_id = $row['category'];
                                     $category = $row['category_name'];
-                                    $date = $row['post_date'];
+                                    $date = $row['published_at'];
                                     $post_img = $row['post_img'];
                                     ?>
                                     <div class="post-content">
@@ -166,18 +166,12 @@ if (!$conn) {
                                                         </span>
                                                         <span>
                                                             <i class="fa fa-calendar" aria-hidden="true"></i>
-                                                            <?php echo $date; ?>
+                                                            <?php echo date("d M, Y", strtotime($date)); ?>
                                                         </span>
                                                     </div>
-                                                    <p class="description">
-                                                        <?php
-                                                        //truncate long description
-                                                        if (strlen($description) > 150) {
-                                                            $description = substr($description, 0, 147) . '...';
-                                                        }
-                                                        echo nl2br($description);
-                                                        ?>
-                                                    </p>
+                                                    <div class="description posts_container_desc">
+                                                        <?php echo substr(strip_tags($row['description']), 0, 160) . '...'; ?>
+                                                    </div>
                                                     <a class='read-more pull-right' href='single.php?id=<?php echo $id; ?>'>read
                                                         more</a>
                                                 </div>
@@ -189,8 +183,7 @@ if (!$conn) {
                             else:
                                 echo "<h2>No Record Found.</h2>";
                             endif;
-                            //close connection
-                            mysqli_close($conn);
+
                         endif;
                     else:
                         echo "<h2>Connection Error.</h2>";
@@ -247,4 +240,9 @@ if (!$conn) {
         </div>
     </div>
 </div>
-<?php include 'footer.php'; ?>
+<?php
+//close connection
+mysqli_close($conn);
+include 'footer.php';
+
+?>

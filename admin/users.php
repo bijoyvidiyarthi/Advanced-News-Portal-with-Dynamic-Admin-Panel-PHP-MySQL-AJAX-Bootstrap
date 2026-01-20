@@ -1,23 +1,24 @@
 <?php
-/**
- * 1. INITIALIZATION & CONFIGURATION
- */
-include 'header.php';      // Includes session_start(), header template, etc.
-include 'config.php';      // Database connection ($conn)
+
+/* =========================
+   Session & Authentication
+========================= */
+include_once __DIR__ . "/config.php";
+include __DIR__ . "/includes/auth.php";
 
 /**
- * 2. ADMIN ACCESS CONTROL
+ *  ADMIN ACCESS CONTROL
  * Restricts this page to Admin users (role = 1) only.
  */
 if (isset($_SESSION['user_role'])) {
     if ($_SESSION['user_role'] != 1) {
-        header("Location: post.php");
+        header("Location:" . BASE_URL);
         exit();
     }
 }
 
 /**
- * 3. PAGINATION PARAMETERS
+ *  PAGINATION PARAMETERS
  */
 $limit = 5;
 $page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
@@ -59,6 +60,13 @@ if ($page > $total_pages && $total_pages > 0) {
 // 4b. Fetch User Data for Current Page
 $sql = "SELECT * FROM user ORDER BY user_id DESC LIMIT {$offset}, {$limit}";
 $result = mysqli_query($conn, $sql) or die("Query Failed (Fetch).");
+
+/**
+ * 1. INITIALIZATION & CONFIGURATION
+ */
+include_once __DIR__ . "/includes/header.php";      // Includes session_start(), header template, etc.
+include_once __DIR__ . "/includes/sidebar.php";
+
 ?>
 
 <div id="admin-content">
@@ -66,7 +74,6 @@ $result = mysqli_query($conn, $sql) or die("Query Failed (Fetch).");
         <!-- HEADER SECTION -->
         <div class="row">
             <div class="col-md-10">
-                <h1 class="admin-heading">All Users</h1>
 
                 <!-- 5. NOTIFICATION MESSAGES (Success/Error) -->
                 <?php
@@ -179,6 +186,6 @@ $result = mysqli_query($conn, $sql) or die("Query Failed (Fetch).");
 
 <?php
 // 7. CLEANUP
-mysqli_close($conn);
-include "footer.php";
+
+include_once __DIR__ . "/includes/footer.php";
 ?>

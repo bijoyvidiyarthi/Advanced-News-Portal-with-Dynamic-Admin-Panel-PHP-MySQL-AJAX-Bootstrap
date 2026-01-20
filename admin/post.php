@@ -1,208 +1,284 @@
 <?php
-include 'header.php';
-include 'config.php';
-//--- Pagination Setup---
-$limit = 5;
+//  ============== Start session and check connection ===============
+include_once __DIR__ . "/config.php";
+include __DIR__ . "/includes/auth.php";
 
-// Set the current page number, ensuring it's an integer and at least 1
-$page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
-if ($page < 1) {
-    //if anyone try to access page less than 1 then redirect to page 1 and show error
-    $_SESSION['error'] = "⚠️ **Page Not Found:** You tried to access page " . ($page) . ", but it does not exist.";
-    header("Location: $_SERVER[PHP_SELF]?page=" . 1);
-    exit(); // CRITICAL: Stop script so redirect happens immediately
+// ======== Immediate Database Connection Check ==========
+if (!$conn) {
+    $_SESSION['error'] = "⚠️ **Database Connection Error:** Unable to connect. Please try again later.";
+    // Ensure no HTML is sent before this header
+    header("Location: index.php");
+    exit();
 }
 
-//Calculate Offset
+//==========   Filter Logic Initialization ==============
+$search_term = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : "";
+$filter_cat = isset($_GET['cat_filter']) ? (int) $_GET['cat_filter'] : "";
+$filter_date = isset($_GET['date_filter']) ? mysqli_real_escape_string($conn, $_GET['date_filter']) : "";
+
+// Base WHERE clause logic
+$where_clauses = [];
+
+// Role-based restriction
+if ($_SESSION['user_role'] != 1) {
+    $where_clauses[] = "p.author = {$_SESSION['user_id']}";
+}
+
+// Apply Search Filter
+if (!empty($search_term)) {
+    $where_clauses[] = "(p.title LIKE '%{$search_term}%' OR p.description LIKE '%{$search_term}%')";
+}
+
+// Apply Category Filter
+if (!empty($filter_cat)) {
+    $where_clauses[] = "p.category = {$filter_cat}";
+}
+
+// Apply Date Filter
+if (!empty($filter_date)) {
+    $where_clauses[] = "DATE(p.created_date) = '{$filter_date}'";
+}
+
+// Construct Final SQL WHERE String
+$where_sql = "";
+if (count($where_clauses) > 0) {
+    $where_sql = " WHERE " . implode(" AND ", $where_clauses);
+}
+
+
+//  ========== Pagination Setup ==============
+$limit = 5;
+$page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
+
+
+// 5. Calculate Total Records & Pages
+$countSql = "SELECT COUNT(post_id) AS total_posts FROM post p $where_sql";
+$countResult = mysqli_query($conn, $countSql);
+$total_posts = 0;
+$total_pages = 0;
+
+if ($countResult && mysqli_num_rows($countResult) > 0) {
+    $countrow = mysqli_fetch_assoc($countResult);
+    $total_posts = $countrow['total_posts'];
+    $total_pages = ceil($total_posts / $limit);
+}
+
+// 6. Page Validation (Before any HTML output)
+if ($page < 1) {
+    $_SESSION['error'] = "⚠️ **Page Not Found:** Redirected to page 1.";
+    header("Location: " . $_SERVER['PHP_SELF'] . "?page=1");
+    exit();
+}
+
+if ($total_pages > 0 && $page > $total_pages) {
+    $_SESSION['error'] = "⚠️ **Page Not Found:** Redirected to the last available page.";
+    header("Location: " . $_SERVER['PHP_SELF'] . "?page=" . $total_pages);
+    exit();
+}
+
 $offset = ($page - 1) * $limit;
 
-//--- Calculate total records --
-
-//check connection
-if (!$conn) {
-    $_SESSION['error'] = "⚠️ **Database Connection Error:** We are currently unable to connect to the database. Please try again later.";
-    header("Location: post.php");
-    exit();
-} else {
-    //count SQL
-    //check if is the admin or normal user
-    // Determine the filter based on user role
-    $filter_sql = "";
-    if ($_SESSION['user_role'] != 1) {
-        $filter_sql = " WHERE p.author = {$_SESSION['user_id']}";
-    }
-
-    // Count query matches the filter so pagination links are accurate
-    $countSql = "SELECT COUNT(post_id) AS total_posts FROM post p $filter_sql";
-    $countResult = mysqli_query($conn, $countSql);
-
-
-    //By default total records and pages will be 0
-    $total_records = 0;
-    $total_pages = 0;
-
-    if ($countResult && mysqli_num_rows($countResult) > 0) {
-        // Get total number of posts
-        $countrow = mysqli_fetch_assoc($countResult); //here row is an associative array that contains total_users as key
-        $total_posts = $countrow['total_posts'];
-        $total_pages = ceil($total_posts / $limit); //eg: 45/10 =4.5 =>5 page, 0.4= 1 page
-
-        // Ensure the current page doesn't exceed the total pages 
-        // (e.g., if a record was deleted)
-        if ($page > $total_pages && $total_pages > 0) {
-            //if anyone try to access page more than total pages then redirect to last page and show error
-            $_SESSION['error'] = "⚠️ **Page Not Found:** You tried to access page " . ($page) . ", but it does not exist.";
-            header("Location: $_SERVER[PHP_SELF]");
-            exit(); // CRITICAL: Stop script so redirect happens immediately
-        }
-    }
-}
+// ======== Include UI headers ========== 
+include 'includes/header.php';
+include 'includes/sidebar.php';
 ?>
-<div id="admin-content">
-    <div class="container">
-        <div class="row">
-            <div class="col-md-10">
-                <h1 class="admin-heading">All Posts</h1>
-            </div>
-            <div class="col-md-2">
-                <a class="add-new" href="add-post.php">add post</a>
-            </div>
-            <div class="col-md-12">
-                <?php
-                if (isset($_SESSION['success'])) {
-                    $success_msg = htmlspecialchars($_SESSION['success']);
-                    echo "<div class='alert alert-success'>$success_msg</div>";
-                    unset($_SESSION['success']);
-                }
+<div class="app-content">
+    <div class="container-fluid">
 
-                if (isset($_SESSION['error'])) {
-                    $error_message = htmlspecialchars($_SESSION['error']);
-                    echo "<div class='alert alert-danger'>$error_message</div>";
-                    unset($_SESSION['error']);
-                }
+        <div class="card mb-4">
+            <div class="card-body">
+                <form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="GET" class="row g-3">
 
-                //first check if connection is established or not
-                if ($conn):
-                    // Fetch users from database and display here       
-                    $sql = "SELECT p.post_id, p.title, p.description, p.post_date, 
-                            u.username, c.category_name, p.category
-                            FROM post p
-                            LEFT JOIN category c ON p.category = c.category_id
-                            LEFT JOIN user u ON p.author = u.user_id
-                            $filter_sql
-                            ORDER BY p.post_id ASC                        
-                            LIMIT {$limit} OFFSET {$offset}";
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" name="search" class="form-control" placeholder="Search by title..."
+                                value="<?php echo htmlspecialchars($search_term); ?>">
+                        </div>
+                    </div>
 
-                            // print_r($sql);
-                            // echo $sql;
-
-                    $result = mysqli_query($conn, $sql);
-
-                    if (!$result):
-                        $_SESSION['error'] = "Error fetching posts: " . mysqli_error($conn);
-                        header("Location: post.php");
-                        mysqli_close($conn);
-                    else:
-                        ?>
-                        <table class="content-table">
-                            <thead>
-                                <th>S.No.</th>
-                                <th>Title</th>
-                                <th>Category</th>
-                                <th>Date</th>
-                                <th>Author</th>
-                                <th>Edit</th>
-                                <th>Delete</th>
-                            </thead>
-                            <tbody>
-                                <?php
-                                if (mysqli_num_rows($result) > 0):
-                                    $id_no = $offset + 1;
-
-                                    while ($row = mysqli_fetch_assoc($result)):
-                                        $id = $row['post_id'];
-                                        $title = $row['title'];
-                                        $description = $row['description'];
-                                        $author = $row['username'];
-                                        $category_id = $row['category'];
-                                        $category = $row['category_name'];
-                                        $date = $row['post_date'];
-
-                                        ?>
-                                        <tr>
-                                            <td class='id'><?php echo htmlspecialchars($id_no); ?></td>
-                                            <td><?php echo htmlspecialchars($title); ?></td>
-                                            <td><?php echo htmlspecialchars($category); ?></td>
-                                            <td><?php echo htmlspecialchars($date); ?></td>
-                                            <td><?php echo htmlspecialchars($author); ?></td>
-                                            <td class='edit'><a href='update-post.php?id=<?php echo htmlspecialchars($id); ?>'><i
-                                                        class='fa fa-edit'></i></a></td>
-                                            <td class='delete'><a
-                                                    href='delete-post.php?id=<?php echo htmlspecialchars($id); ?>&catid=<?php echo htmlspecialchars($category_id); ?>'><i
-                                                        class='fa fa-trash-o'></i></a></td>
-                                        </tr>
-                                        <?php
-                                        $id_no++;
-                                    endwhile;
-                                else:
-                                    echo "<p>No records found.</p>";
-                                endif;
-                                mysqli_close($conn);
-                                ?>
-                            </tbody>
-                        </table>
-                        <ul class='pagination admin-pagination'>
-                            <!-- pagination links code  -->
+                    <div class="col-md-3">
+                        <select name="cat_filter" class="form-select">
+                            <option value="">All Categories</option>
                             <?php
-                            if ($total_pages > 1):
-                                //Previous Page
-                                if ($page > 1):
-                                    echo '<li class="prev"><a href=" ' . $_SERVER['PHP_SELF'] . '?page=' . ($page - 1) . ' " >Prev</a></li>';
-                                endif;
+                            $cat_sql = "SELECT * FROM category";
+                            $cat_result = mysqli_query($conn, $cat_sql);
+                            while ($cat_row = mysqli_fetch_assoc($cat_result)) {
+                                $selected = ($cat_row['category_id'] == $filter_cat) ? "selected" : "";
+                                echo "<option value='{$cat_row['category_id']}' {$selected}>{$cat_row['category_name']}</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
 
-                                //Show Page numbers
+                    <div class="col-md-3">
+                        <input type="date" name="date_filter" class="form-control" value="<?php echo $filter_date; ?>">
+                    </div>
+
+                    <div class="col-md-2 d-grid gap-2 d-md-flex">
+                        <button type="submit" class="btn btn-primary flex-grow-1">Filter</button>
+                        <a href="post.php" class="btn btn-secondary" title="Reset"><i
+                                class="bi bi-arrow-counterclockwise"></i></a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card card-outline card-primary">
+                    <div class="card-header">
+                        <h3 class="card-title">News List</h3>
+                        <div class="card-tools">
+                            <a class="btn btn-sm btn-primary" href="add-post.php">
+                                <i class="bi bi-plus-lg"></i> Add New Post
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="card-body p-0">
+                        <?php
+                        // Display Messages
+                        if (isset($_SESSION['success'])) {
+                            echo "<div class='alert alert-success m-3'>" . htmlspecialchars($_SESSION['success']) . "</div>";
+                            unset($_SESSION['success']);
+                        }
+                        if (isset($_SESSION['error'])) {
+                            echo "<div class='alert alert-danger m-3'>" . htmlspecialchars($_SESSION['error']) . "</div>";
+                            unset($_SESSION['error']);
+                        }
+
+                        // 8. Fetch Post Data with Filters
+                        $sql = "SELECT p.post_id, p.title, p.description, p.created_date, 
+                                           u.username, c.category_name, p.category, p.status
+                                    FROM post p
+                                    LEFT JOIN category c ON p.category = c.category_id
+                                    LEFT JOIN user u ON p.author = u.user_id
+                                    $where_sql
+                                    ORDER BY (p.status = 'pending') DESC, p.created_date DESC 
+                                    LIMIT {$limit} OFFSET {$offset}";
+
+                        $result = mysqli_query($conn, $sql);
+
+                        if (!$result):
+                            echo "<div class='alert alert-danger m-3'>Error fetching posts: " . mysqli_error($conn) . "</div>";
+                        else:
+                            ?>
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 10px">#</th>
+                                        <th>Title</th>
+                                        <th>Category</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                        <th>Author</th>
+                                        <th class="text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php
+                                    if (mysqli_num_rows($result) > 0):
+                                        $id_no = $offset + 1;
+                                        while ($row = mysqli_fetch_assoc($result)):
+                                            ?>
+                                            <tr>
+                                                <td><?php echo $id_no; ?></td>
+                                                <td>
+                                                    <?php echo htmlspecialchars(substr($row['title'], 0, 50)) . (strlen($row['title']) > 50 ? '...' : ''); ?>
+                                                </td>
+                                                <td><span
+                                                        class="badge text-bg-secondary"><?php echo htmlspecialchars($row['category_name']); ?></span>
+                                                </td>
+                                                <td>
+                                                    <?php
+                                                    if ($row['status'] == 'approved') {
+                                                        echo '<span class="badge text-bg-success">Active</span>';
+                                                    } elseif ($row['status'] == 'pending') {
+                                                        echo '<span class="badge text-bg-warning">Pending</span>';
+                                                    } else {
+                                                        echo '<span class="badge text-bg-secondary">Draft</span>';
+                                                    }
+                                                    ?>
+                                                </td>
+                                                <td><?php echo date("d M, Y", strtotime($row['created_date'])); ?></td>
+                                                <td><small
+                                                        class="text-muted fw-bold"><?php echo htmlspecialchars($row['username']); ?></small>
+                                                </td>
+
+                                                <td class="text-center">
+                                                    <a href="update-post.php?id=<?php echo $row['post_id']; ?>"
+                                                        class="btn btn-sm btn-info text-white">
+                                                        <i class="bi bi-pencil-square"></i>
+                                                    </a>
+                                                    <a onclick="return confirm('Are you sure you want to delete this post?')"
+                                                        href="delete-post.php?id=<?php echo $row['post_id']; ?>&catid=<?php echo $row['category']; ?>"
+                                                        class="btn btn-sm btn-danger">
+                                                        <i class="bi bi-trash"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            <?php
+                                            $id_no++;
+                                        endwhile;
+                                    else:
+                                        echo "<tr><td colspan='7' class='text-center py-4 text-muted'>No news found matching your criteria.</td></tr>";
+                                    endif;
+                                    ?>
+                                </tbody>
+                            </table>
+                        <?php endif; ?>
+                    </div>
+                    <div class="card-footer clearfix">
+                        <ul class="pagination pagination-sm m-0 float-end">
+                            <?php if ($total_pages > 1):
+                                // URL Parameter Retention Logic
+                                $params = $_GET;
+                                unset($params['page']);
+                                $query_str = http_build_query($params);
+                                $link_prefix = $_SERVER['PHP_SELF'] . "?" . ($query_str ? $query_str . "&" : "");
+                                ?>
+                                <li class="page-item <?php echo ($page <= 1) ? 'disabled' : ''; ?>">
+                                    <a class="page-link"
+                                        href="<?php echo $link_prefix . "page=" . ($page - 1); ?>">&laquo;</a>
+                                </li>
+
+                                <?php
                                 $range = 2;
-                                //eg. if current page is 3, start will 3-2 = 1 (pagination: ..12 3 45)
                                 $start = max(1, $page - $range);
                                 $end = min($total_pages, $page + $range);
 
-                                // Start Ellipsis
-                                if ($start > 1):
-                                    echo '<li><a href="post.php?page=1">1</a></li>';
+                                if ($start > 1) {
+                                    echo '<li class="page-item"><a class="page-link" href="' . $link_prefix . 'page=1">1</a></li>';
                                     if ($start > 2)
-                                        echo '<li><span>...</span></li>';
-                                endif;
+                                        echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                                }
 
-                                // Truncation logic (first page and ellipsis)
-                                for ($i = $start; $i <= $end; $i++):
+                                for ($i = $start; $i <= $end; $i++) {
                                     $active = ($i == $page) ? "active" : "";
-                                    echo '<li class=" ' . $active . ' "><a href=" ' . $_SERVER['PHP_SELF'] . '?page=' . $i . ' " >' . $i . '</a></li>';
-                                endfor;
+                                    echo '<li class="page-item ' . $active . '"><a class="page-link" href="' . $link_prefix . 'page=' . $i . '">' . $i . '</a></li>';
+                                }
 
-
-                                // End Ellipsis
-                                if ($end < $total_pages):
+                                if ($end < $total_pages) {
                                     if ($end < $total_pages - 1)
-                                        echo '<li><span>...</span></li>';
-                                    echo '<li><a href="post.php?page=' . $total_pages . '">' . $total_pages . '</a></li>';
-                                endif;
+                                        echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                                    echo '<li class="page-item"><a class="page-link" href="' . $link_prefix . 'page=' . $total_pages . '">' . $total_pages . '</a></li>';
+                                }
+                                ?>
 
-                                //next page
-                                if (1 < $total_pages && $page < $total_pages):
-                                    echo '<li class="next"><a href=" ' . $_SERVER['PHP_SELF'] . '?page=' . ($page + 1) . ' " >Next</a></li>';
-                                endif;
-                            else:
-                                echo "<p> All Records Are Shown</p>";
-                            endif;
-                            ?>
+                                <li class="page-item <?php echo ($page >= $total_pages) ? 'disabled' : ''; ?>">
+                                    <a class="page-link"
+                                        href="<?php echo $link_prefix . "page=" . ($page + 1); ?>">&raquo;</a>
+                                </li>
+                            <?php endif; ?>
                         </ul>
-                        <?php
-
-                    endif;
-                endif;
-                ?>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
-<?php include "footer.php"; ?>
+
+<?php
+include "includes/footer.php";
+?>

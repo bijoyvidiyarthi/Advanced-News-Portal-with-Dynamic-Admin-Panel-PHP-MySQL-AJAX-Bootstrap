@@ -1,6 +1,9 @@
 <?php
-include "header.php";
-include "config.php";
+/**
+ * 1. INITIALIZATION, SESSION and Login Authentication
+ */
+include_once __DIR__ . "/config.php";
+include __DIR__ . "/includes/auth.php";
 
 //cannot access this page if not admin and without login
 if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] != 1) {
@@ -51,6 +54,8 @@ if (!$conn) {
         }
     }
 }
+include __DIR__ . "/includes/header.php";
+include __DIR__ . "/includes/sidebar.php";
 ?>
 <div id="admin-content">
     <div class="container">
@@ -158,7 +163,6 @@ if (!$conn) {
                         } else {
                             echo "<p>No records found.</p>";
                         }
-                        mysqli_close($conn);
                     }
                 }
                 ?>
@@ -166,4 +170,6 @@ if (!$conn) {
         </div>
     </div>
 </div>
-<?php include "footer.php"; ?>
+<?php
+include_once __DIR__ . "/includes/footer.php";
+?>

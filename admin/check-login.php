@@ -1,4 +1,10 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+include_once "config.php";
+
 // Define 30 days in seconds
 $expire_after = 30 * 24 * 60 * 60;
 
@@ -19,13 +25,14 @@ if (isset($_SESSION['is_logged_in']) && $_SESSION['is_logged_in'] === true) {
 
     // Update last activity time to 'now' (slidng expiration)
     $_SESSION['last_activity'] = time();
-    // 2. NEW FIX: Verify user exists in the CURRENT database
-    include "config.php";
-    $sess_user_name = $_SESSION['username'];
+
+    // Verify user exists in the CURRENT database
+    $sess_user_name = mysqli_real_escape_string($conn, $_SESSION['username']);
     $sql_verify = "SELECT username FROM user WHERE username = '{$sess_user_name}'";
     $result_verify = mysqli_query($conn, $sql_verify);
 
     // print_r($result_verify);
+
     if (mysqli_num_rows($result_verify) == 0) {
         // User not found in this database!
         session_unset();
@@ -35,7 +42,6 @@ if (isset($_SESSION['is_logged_in']) && $_SESSION['is_logged_in'] === true) {
     }
 
 } else {
-    $_SESSION['error'] = "Please login to access this page.";
     header("Location: index.php");
     exit();
 }

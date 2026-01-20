@@ -1,7 +1,6 @@
 <?php
 
-include "config.php";
-session_start();
+include_once "/config.php";
 
 // Step 1: Empty the $_SESSION array in the current script
 $_SESSION = array();
@@ -24,7 +23,7 @@ if (ini_get("session.use_cookies")) {
 session_destroy();
 
 // Step 4: Send the user to the login page
-header("Location: index.php");
+header("Location: " . BASE_URL . "index.php");
 exit();
 ?>
 

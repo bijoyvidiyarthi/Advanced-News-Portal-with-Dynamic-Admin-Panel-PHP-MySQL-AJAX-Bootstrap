@@ -1,5 +1,10 @@
 <?php 
-include "header.php"; 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+include "config.php";
+
 //cannot access this page if not admin and without login
 if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] != 1) {
     $_SESSION['error'] = "🚫 **Access Denied:** You do not have permission to access this page.";
@@ -8,7 +13,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] != 1) {
 }
 
 if (isset($_POST['save'])) {
-    include "config.php";
+  
     // ---  Sanitize and Get Variables ---
     $c_name = mysqli_real_escape_string($conn, $_POST['cat']);
     // --- Input Validation Checks: ---
@@ -48,6 +53,9 @@ if (isset($_POST['save'])) {
     mysqli_close($conn);
 }
 
+include "includes/header.php";
+include "includes/sidebar.php";
+
 ?>
   <div id="admin-content">
       <div class="container">
@@ -69,4 +77,4 @@ if (isset($_POST['save'])) {
           </div>
       </div>
   </div>
-<?php include "footer.php"; ?>
+<?php include "includes/footer.php"; ?>

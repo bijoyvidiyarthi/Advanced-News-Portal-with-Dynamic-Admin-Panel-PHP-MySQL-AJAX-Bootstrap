@@ -1,6 +1,4 @@
 <?php
-session_start();
-include "config.php";
 include "check-login.php"; //check if logged in or not
 
 //get username and role default;
@@ -9,7 +7,7 @@ $role = "Guest"; // Default value
 
 if (isset($_SESSION['username']) && isset($_SESSION['user_role'])) {
     $username = htmlspecialchars($_SESSION['username']);
-    $user_role = (int)$_SESSION['user_role'];
+    $user_role = (int) $_SESSION['user_role'];
     $role = ($user_role == 1) ? "Admin" : "Normal User";
 }
 

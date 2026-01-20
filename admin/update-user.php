@@ -1,11 +1,10 @@
 <?php
 
-include "header.php";
-include 'config.php';
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+/* =========================
+   Session & Authentication
+========================= */
+include_once __DIR__ . "/config.php";
+include_once __DIR__ . "/includes/auth.php";
 
 /**
  * 2. ACCESS CONTROL
@@ -24,7 +23,7 @@ if (empty($_SESSION['csrf_token'])) {
 //check if user id provided or not
 if (!isset($_GET['aid'])) {
     $_SESSION['error'] = "⚠️ **No ID Provided:** Please provide a valid post ID to update.";
-    header("Location: post.php");
+    header("Location: users.php");
     exit();
 }
 
@@ -128,6 +127,9 @@ if (isset($_POST['submit'])) {
         }
     }
 }
+
+include_once __DIR__ . "/includes/header.php";
+include_once __DIR__ . "/includes/sidebar.php";
 ?>
 <div id="admin-content">
     <div class="container">
@@ -178,11 +180,8 @@ if (isset($_POST['submit'])) {
                         <input type="submit" name="submit" class="btn btn-primary" value="Update" required />
                     </form>
                     <!-- /Form -->
-                    <?php
-                            mysqli_close($conn);
-                            ?>
             </div>
         </div>
     </div>
 </div>
-<?php include "footer.php"; ?>
+<?php include_once __DIR__ . "/includes/footer.php"; ?>

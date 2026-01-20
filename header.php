@@ -1,158 +1,149 @@
 <?php
-//code for dynamic title showing according page
 include 'config.php';
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+/* ==========================
+   Visitor Tracking
+========================== */
+$ip = $_SERVER['REMOTE_ADDR'];
+$current_time = date("Y-m-d H:i:s");
+$today_date = date("Y-m-d");
+
+// IP tracking with improved query
+$check_log = "SELECT id FROM visitor_logs WHERE ip_address = '$ip' AND DATE(visit_date) = '$today_date'";
+$log_result = mysqli_query($conn, $check_log);
+
+if ($log_result && mysqli_num_rows($log_result) === 0) {
+    mysqli_query($conn, "INSERT INTO visitor_logs (ip_address, visit_date) VALUES ('$ip', '$current_time')");
+    mysqli_query($conn, "INSERT INTO daily_visits (visit_date, views) VALUES ('$today_date', 1) ON DUPLICATE KEY UPDATE views = views + 1");
+}
+
+/* ==========================
+   Fetch Website Settings
+========================== */
+$site_info_sql = "SELECT * FROM settings LIMIT 1";
+$site_info_res = mysqli_query($conn, $site_info_sql);
+$settings = mysqli_fetch_assoc($site_info_res);
+
+$sitename = $settings['websitename'];
+$site_desc = $settings['footerdesc']; // Use footerdesc or add a 'description' column in DB
+$site_logo = $settings['logo'];
+
+/* ==========================
+   Dynamic SEO Title Logic
+========================== */
 $pagename = basename($_SERVER['PHP_SELF'], ".php");
+$title = $sitename;
+
+function getTitleName($conn, $table, $column, $whereCol, $id)
+{
+    $id = (int) $id;
+    $sql = "SELECT $column AS value FROM $table WHERE $whereCol = ?";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt)
+        return null;
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+    return $row['value'] ?? null;
+}
 
 switch ($pagename) {
     case 'single':
-        //get the post title from database
         if (isset($_GET['id'])) {
-            $post_id = mysqli_real_escape_string($conn, $_GET['id']);
-            $sql = "SELECT title FROM post WHERE post_id = {$post_id}";
-            $result = mysqli_query($conn, $sql);
-            if ($result && mysqli_num_rows($result) > 0) {
-                $row = mysqli_fetch_assoc($result);
-                $title = htmlspecialchars($row['title']);
-            } else {
-                $title = "Post Not Found";
-            }
-        } else {
-            $title = "Post Not Found";
+            $post_title = getTitleName($conn, 'post', 'title', 'post_id', $_GET['id']);
+            $title = htmlspecialchars($post_title) . " | " . $sitename;
         }
         break;
-
     case 'category':
-        //get the category name from database
         if (isset($_GET['c_id'])) {
-            $cat_id = mysqli_real_escape_string($conn, $_GET['c_id']);
-            $sql = "SELECT category_name FROM category WHERE category_id = {$cat_id}";
-            $result = mysqli_query($conn, $sql);
-            if ($result && mysqli_num_rows($result) > 0) {
-                $row = mysqli_fetch_assoc($result);
-                $title = htmlspecialchars($row['category_name']) . " News";
-            } else {
-                $title = "Category Not Found";
-            }
-        } else {
-            $title = "Category Not Found";
+            $cat_title = getTitleName($conn, 'category', 'category_name', 'category_id', $_GET['c_id']);
+            $title = htmlspecialchars($cat_title) . " News | " . $sitename;
         }
         break;
-
-    case 'author':
-        //get the author name from database
-        if (isset($_GET['aid'])) {
-            $author_id = mysqli_real_escape_string($conn, $_GET['aid']);
-            $sql = "SELECT username FROM user WHERE user_id = {$author_id}";
-            $result = mysqli_query($conn, $sql);
-            if ($result && mysqli_num_rows($result) > 0) {
-                $row = mysqli_fetch_assoc($result);
-                $title = "Posts by " . htmlspecialchars($row['username']);
-            } else {
-                $title = "Author Not Found";
-            }
-        } else {
-            $title = "Author Not Found";
-        }
-        break;
-
     case 'search':
-        //get the search keyword
         if (isset($_GET['search'])) {
-            $search_keyword = htmlspecialchars($_GET['search']);
-            $title = "Search results for '" . $search_keyword . "'";
-        } else {
-            $title = "Search";
+            $title = 'Search: ' . htmlspecialchars($_GET['search']) . " | " . $sitename;
         }
-        break;
-
-    default:
-        $title = "News Site";
         break;
 }
-
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
     <title><?php echo $title; ?></title>
-    <!-- Bootstrap -->
+
+    <meta name="description" content="<?php echo substr(strip_tags($site_desc), 0, 160); ?>">
+    <meta name="robots" content="index, follow">
+
+    <meta property="og:title" content="<?php echo $title; ?>">
+    <meta property="og:description" content="Latest news and updates from <?php echo $sitename; ?>">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?php echo "http://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]"; ?>">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/bootstrap.min.css" />
-    <!-- Font Awesome Icon -->
-    <link rel="stylesheet" href="css/font-awesome.css">
-    <!-- Custom stlylesheet -->
     <link rel="stylesheet" href="css/style.css">
+
 </head>
 
 <body>
-    <!-- HEADER -->
+
     <div id="header">
-        <!-- container -->
         <div class="container">
-            <!-- row -->
             <div class="row">
-                <!-- LOGO -->
-                <div class=" col-md-offset-4 col-md-4">
+                <div class="col-md-12 text-center">
                     <?php
-
-                    if ($conn) {
-                        $logosql = "SELECT logo from settings";
-                        $result = mysqli_query($conn, $logosql);
-
-                        if (mysqli_num_rows($result) > 0) {
-                            $row = mysqli_fetch_assoc($result);
-                            $logo = $row['logo'];
-                        }
-                        mysqli_close($conn);
+                    if (empty($site_logo)) {
+                        echo '<a href="index.php" id="logo"><h1>' . $sitename . '</h1></a>';
+                    } else {
+                        echo '<a href="index.php" id="logo"><img src="admin/images/' . $site_logo . '" alt="' . $sitename . ' Logo"></a>';
                     }
-                    
                     ?>
-                    <a href="index.php" id="logo"><img class="logo"
-                            src="images/<?php echo htmlspecialchars($logo); ?>"></a>
                 </div>
-                <!-- /LOGO -->
             </div>
         </div>
     </div>
-    <!-- /HEADER -->
-    <!-- Menu Bar -->
+
+    <!-- ======== home-menu-bar ========= -->
     <div id="menu-bar">
         <div class="container">
             <div class="row">
-                <div class="col-md-12">
-                    <ul class='menu'>
-                        <li><a href='index.php'>Home</a></li>
+                <div class="col-md-12" style="position: relative;">
+                    <button class="menu-toggle" id="menu-toggle-btn">
+                        <i class="fas fa-bars"></i>
+                    </button>
+
+                    <div class="menu-overlay" id="menu-overlay"></div>
+
+                    <ul class='menu' id="main-menu">
+                        <?php $home_active = ($pagename == 'index') ? "active" : ""; ?>
+                        <li><a class="<?php echo $home_active; ?>" href="index.php">Home</a></li>
+
                         <?php
-                        include 'config.php';
-                        //first check if connection is established or not
-                        if ($conn) {
-                            // Fetch users from database and display here
-                            $sql = "SELECT * 
-                            FROM category
-                            ORDER BY category_id ASC";
+                        $active_cat_id = isset($_GET['c_id']) ? (int) $_GET['c_id'] : 0;
+                        $sql_cat = "SELECT * 
+                                    FROM category 
+                                    WHERE post > 0 
+                                    AND show_in_header = 1 
+                                    ORDER BY category_id ASC";
 
-                            $result = mysqli_query($conn, $sql);
+                        $res_cat = mysqli_query($conn, $sql_cat);
 
-                            if (!$result) {
-                                die("Query Failed: " . mysqli_error($connection));
-                            } else {
-                                if (mysqli_num_rows($result) > 0) {
-                                    while ($row = mysqli_fetch_assoc($result)) {
-                                        $cat_id = $row['category_id'];
-                                        $category_name = $row['category_name'];
-                                        $post = $row['post'];
-                                        ?>
-                                        <li><a href='category.php?c_id=<?php echo $cat_id; ?>'>
-                                                <?php echo $category_name; ?></a></li>
-                                        <?php
-                                    }
-                                }
+                        if ($res_cat && mysqli_num_rows($res_cat) > 0) {
+                            while ($row_cat = mysqli_fetch_assoc($res_cat)) {
+                                $cat_active = ($row_cat['category_id'] == $active_cat_id) ? "active" : "";
+                                echo "<li><a class='{$cat_active}' href='category.php?c_id={$row_cat['category_id']}'>{$row_cat['category_name']}</a></li>";
                             }
                         }
                         ?>
@@ -161,4 +152,7 @@ switch ($pagename) {
             </div>
         </div>
     </div>
-    <!-- /Menu Bar -->
+
+    <script>
+   
+    </script>

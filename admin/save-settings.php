@@ -1,56 +1,67 @@
 <?php
-session_start();
-include "config.php";
+include_once __DIR__ . "/config.php";
 
-//check if the form is submitted 
+// Only administrators are allowed to change settings
+if ($_SESSION['user_role'] != 1) {
+  $_SESSION['error'] = "You are not allowed this page";
+  header("Location: post.php");
+  exit();
+}
+
 if (isset($_POST['submit'])) {
 
-  //check if file is uploaded or not
-  $file_name = "";
-  //initialize errors array
   $errors = array();
   $file_name = $_FILES['logo']['name'];
 
+  // === 1. Image (Logo) Processing ===
   if (empty($file_name)) {
+    // Use existing logo if no new file is uploaded
     $file_name = $_POST['old_logo'];
   } else {
-    $errors = array();
-
-    $file_name = $_FILES['logo']['name'];
     $file_size = $_FILES['logo']['size'];
     $file_tmp = $_FILES['logo']['tmp_name'];
-    $file_type = $_FILES['logo']['type'];
-
-
-    // here the pathinfo function will return an array containing information about the path.then we use PATHINFO_EXTENSION to get only the extension part
     $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
-    $extensions = array("jpeg", "jpg", "png"); //allowed extensions
+    $extensions = array("jpeg", "jpg", "png");
 
+    // Validate file extension
     if (in_array($file_ext, $extensions) === false) {
-      $errors[] = "This extension file not allowed, Please choose a JPG or PNG file.";
+      $errors[] = "This extension file is not allowed. Please choose a JPG or PNG file.";
     }
 
+    // Validate file size (Max 2MB)
     if ($file_size > 2097152) {
-      $errors[] = "File size must be 2mb or lower.";
+      $errors[] = "File size must be 2MB or lower.";
+    }
+
+    if (empty($errors)) {
+      // Save image with a unique name to prevent cache issues
+      $file_name = "logo-" . time() . "-" . $file_name;
+      move_uploaded_file($file_tmp, "images/" . $file_name);
+
+      // Delete old logo file (Good practice to save server space)
+      $old_logo = $_POST['old_logo'];
+      if ($old_logo != "" && file_exists("images/" . $old_logo)) {
+        unlink("images/" . $old_logo);
+      }
     }
   }
 
-
+  // === 2. Data Sanitization (Including all columns) ===
   $websitename = mysqli_real_escape_string($conn, $_POST["website_name"]);
   $footer_desc = mysqli_real_escape_string($conn, $_POST["footer_desc"]);
+  $site_desc = mysqli_real_escape_string($conn, $_POST["site_desc"]);
+  $contact_email = mysqli_real_escape_string($conn, $_POST["contact_email"]);
+  $contact_phone = mysqli_real_escape_string($conn, $_POST["contact_phone"]);
+  $facebook = mysqli_real_escape_string($conn, $_POST["facebook"]);
+  $youtube = mysqli_real_escape_string($conn, $_POST["youtube"]);
+  $copyright = mysqli_real_escape_string($conn, $_POST["copyright"]);
 
-  //input Validation
-  if (empty($websitename) || empty($footer_desc) || empty($file_name)) {
-    $errors[] = "All fields are required.";
+  // Input Validation
+  if (empty($websitename) || empty($footer_desc)) {
+    $errors[] = "Website Name and Footer Description are required.";
   }
 
-
-  //if there are no errors then proceed the insert query
-
-  if (empty($errors) == true) {
-    move_uploaded_file($file_tmp, "images/" . $file_name);
-  }
-  //if there are errors, store them in session and redirect back to add-post.php
+  // Redirect if there are any errors
   if (!empty($errors)) {
     $_SESSION['error'] = implode("|||", $errors);
     header("Location: settings.php");
@@ -58,25 +69,34 @@ if (isset($_POST['submit'])) {
     exit();
   }
 
+  // === 3. Update Query (New columns integrated) ===
   $sql = "UPDATE settings 
-          SET websitename='{$websitename}', logo='{$file_name}', footerdesc='{$footer_desc}'";
+            SET websitename = '{$websitename}', 
+                logo = '{$file_name}', 
+                footerdesc = '{$footer_desc}',
+                site_desc = '{$site_desc}',
+                contact_email = '{$contact_email}',
+                contact_phone = '{$contact_phone}',
+                facebook_page = '{$facebook}',
+                youtube_url = '{$youtube}',
+                copyright_text = '{$copyright}'";
 
   $result = mysqli_query($conn, $sql);
 
   if ($result) {
     $_SESSION['success'] = "Settings updated successfully.";
-    header("Location: post.php");
-  } else {
-    $_SESSION['error'] = "Error updating Settings.";
     header("Location: settings.php");
-    exit();
+  } else {
+    $_SESSION['error'] = "Error updating Settings: " . mysqli_error($conn);
+    header("Location: settings.php");
   }
+
   mysqli_close($conn);
 
 } else {
+  // Prevent direct access to the script
   $_SESSION['error'] = "Invalid Access.";
   header("Location: settings.php");
-  mysqli_close($conn);
+  exit();
 }
-
 ?>

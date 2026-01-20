@@ -1,14 +1,58 @@
 <?php
-// 1. Set session cookie to last 1 month (2,592,000 seconds)
-$session_lifetime = 30 * 24 * 60 * 60;
-session_set_cookie_params($session_lifetime);
-session_start();
 
+include_once __DIR__ . "/config.php";
 // Redirect if already logged in
 if (isset($_SESSION['is_logged_in']) && $_SESSION['is_logged_in'] === true) {
     $_SESSION['error'] = "You are logged in.";
-    header("Location: post.php");
+    header("Location: " . BASE_URL . "post.php");
     exit();
+}
+
+//loggin proccessing
+
+if (isset($_POST['login'])) {
+    $username = mysqli_real_escape_string($conn, $_POST['username']);
+    $password = $_POST['password'];
+
+    // Use Prepared Statement for login
+    $sql = "SELECT user_id, username, password, role FROM user WHERE username = ?";
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "s", $username);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+
+    if ($row = mysqli_fetch_assoc($result)) {
+        // --- DEBUGGING START ---
+        // echo "Entered: " . $password . "<br>";
+        // echo "From DB: " . $row['password'] . "<br>";
+        // --- DEBUGGING END ---
+        // SECURE CHECK: Compare raw password with hashed password from DB
+        if (password_verify($password, $row['password'])) {
+
+            //change id after login
+            session_regenerate_id(true);
+
+            $_SESSION['user_id'] = $row['user_id'];
+            $_SESSION['username'] = $row['username'];
+            $_SESSION['user_role'] = $row['role'];
+            $_SESSION['is_logged_in'] = true;
+
+            // Set initial activity timestamp
+            $_SESSION['last_activity'] = time();
+
+            header("Location: " . BASE_URL . "post.php");
+            exit();
+        } else {
+            $_SESSION['error'] = "Invalid Username or Password.";
+            header("Location: " . BASE_URL);
+            exit();
+        }
+    } else {
+        $_SESSION['error'] = "Invalid Username or Password.";
+        header("Location: " . BASE_URL);
+        exit();
+    }
 }
 ?>
 <!doctype html>
@@ -32,11 +76,6 @@ if (isset($_SESSION['is_logged_in']) && $_SESSION['is_logged_in'] === true) {
                     <img class="logo" src="images/news.jpg">
                     <h3 class="heading">Admin</h3>
                     <?php
-                    if (isset($_SESSION['success'])) {
-                        $success_msg = htmlspecialchars($_SESSION['success']);
-                        echo "<div class='alert alert-success'>$success_msg</div>";
-                        unset($_SESSION['success']);
-                    }
 
                     if (isset($_SESSION['error'])) {
                         $error_message = htmlspecialchars($_SESSION['error']);
@@ -62,56 +101,7 @@ if (isset($_SESSION['is_logged_in']) && $_SESSION['is_logged_in'] === true) {
                     </form>
                     <!-- /Form  End -->
                     <?php
-                    $_SESSION['is_logged_in'] = false;
 
-                    if (isset($_POST['login'])) {
-                        include "config.php";
-                        $username = mysqli_real_escape_string($conn, $_POST['username']);
-                        $password = $_POST['password'];
-
-
-                        // Use Prepared Statement for login
-                        $sql = "SELECT user_id, username, password, role FROM user WHERE username = ?";
-                        $stmt = mysqli_prepare($conn, $sql);
-                        mysqli_stmt_bind_param($stmt, "s", $username);
-                        mysqli_stmt_execute($stmt);
-                        $result = mysqli_stmt_get_result($stmt);
-
-
-
-
-                        if ($row = mysqli_fetch_assoc($result)) {
-                            // --- DEBUGGING START ---
-                            // echo "Entered: " . $password . "<br>";
-                            // echo "From DB: " . $row['password'] . "<br>";
-                            // --- DEBUGGING END ---
-                            // SECURE CHECK: Compare raw password with hashed password from DB
-                            if (password_verify($password, $row['password'])) {
-
-                                $_SESSION['user_id'] = $row['user_id'];
-                                $_SESSION['username'] = $row['username'];
-                                $_SESSION['user_role'] = $row['role'];
-                                $_SESSION['is_logged_in'] = true;
-
-                                // Set initial activity timestamp
-                                $_SESSION['last_activity'] = time();
-
-                                header("Location: post.php");
-                                exit();
-                            } else {
-
-                                $_SESSION['error'] = "Invalid Username or Password.";
-                                header("Location: index.php");
-                                exit();
-                            }
-                        } else {
-
-
-                            $_SESSION['error'] = "Invalid Username or Password.";
-                            header("Location: index.php");
-                            exit();
-                        }
-                    }
                     ?>
                 </div>
             </div>

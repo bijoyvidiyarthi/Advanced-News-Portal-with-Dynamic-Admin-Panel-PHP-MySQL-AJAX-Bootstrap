@@ -1,5 +1,11 @@
 <?php 
-include "header.php";
+/* =========================
+   Session & Authentication
+========================= */
+include_once __DIR__ . "/config.php";
+include_once __DIR__ . "/includes/auth.php";
+include "includes/header.php";
+include "includes/sidebar.php";
 
 $user_role = htmlspecialchars($_SESSION['user_role']);
 if ($user_role != 1) {
@@ -80,4 +86,4 @@ if (isset($_GET['id'])) {
               </div>
             </div>
           </div>
-<?php include "footer.php"; ?>
+<?php include "includes/footer.php"; ?>

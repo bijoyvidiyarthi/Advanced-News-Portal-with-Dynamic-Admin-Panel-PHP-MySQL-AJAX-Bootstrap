@@ -1,18 +1,10 @@
 <?php
 /**
- * 1. INITIALIZATION & SESSION
+ * 1. INITIALIZATION, SESSION and Login Authentication
  */
-include "header.php";
-include "config.php";
+include_once __DIR__ . "/config.php";
+include __DIR__ . "/includes/auth.php";
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-//csrf token
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
 
 /**
  * 2. ACCESS CONTROL
@@ -21,6 +13,11 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] != 1) {
     $_SESSION['error'] = "🚫 Access Denied: Admin permission required.";
     header("Location: post.php");
     exit();
+}
+
+//csrf token
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 /**
@@ -37,9 +34,9 @@ if (isset($_POST['save'])) {
 
     $fname = trim($_POST['fname']);
     $lname = trim($_POST['lname']);
-    $user  = trim($_POST['user']);
-    $role  = (int)$_POST['role'];
-    $raw_password     = $_POST['password'];
+    $user = trim($_POST['user']);
+    $role = (int) $_POST['role'];
+    $raw_password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
 
     // --- Validation Logic ---
@@ -58,9 +55,12 @@ if (isset($_POST['save'])) {
 
     // Password Strength
     if (!empty($raw_password)) {
-        if (strlen($raw_password) < 8) $errors[] = "Password must be at least 8 characters.";
-        if (!preg_match('/\d/', $raw_password)) $errors[] = "Password needs at least one number.";
-        if (!preg_match('/[A-Z]/', $raw_password)) $errors[] = "Password needs at least one uppercase letter.";
+        if (strlen($raw_password) < 8)
+            $errors[] = "Password must be at least 8 characters.";
+        if (!preg_match('/\d/', $raw_password))
+            $errors[] = "Password needs at least one number.";
+        if (!preg_match('/[A-Z]/', $raw_password))
+            $errors[] = "Password needs at least one uppercase letter.";
     }
 
     // Check for Existing Username
@@ -87,7 +87,7 @@ if (isset($_POST['save'])) {
         if (mysqli_stmt_execute($stmt)) {
             $_SESSION['success'] = "🎉 User added successfully!";
             mysqli_stmt_close($stmt);
-            header("Location: users.php"); 
+            header("Location: users.php");
             exit();
         } else {
             $_SESSION['error'] = "⚠️ Database error.";
@@ -95,82 +95,110 @@ if (isset($_POST['save'])) {
         }
     }
 }
+
+include __DIR__ . "/includes/header.php";
+include __DIR__ . "/includes/sidebar.php";
 ?>
 
-<div id="admin-content">
-    <div class="container">
-        <div class="row">
-            <div class="col-md-offset-3 col-md-6">
-                <h1 class="admin-heading">Add User</h1>
+<div class="app-content">
+    <div class="container-fluid">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <?php if (isset($_SESSION['error'])): ?>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <strong>Wait!</strong>
+                        <ul class="mb-0 mt-2">
+                            <?php
+                            $errors_array = explode("|||", $_SESSION['error']);
+                            foreach ($errors_array as $err) {
+                                echo "<li>$err</li>";
+                            }
+                            ?>
+                        </ul>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    <?php unset($_SESSION['error']); ?>
+                <?php endif; ?>
 
-                <?php
-                if (isset($_SESSION['success'])) {
-                    echo "<div class='alert alert-success'>" . $_SESSION['success'] . "</div>";
-                    unset($_SESSION['success']);
-                }
-
-                if (isset($_SESSION['error'])):
-                    $errors_array = explode("|||", $_SESSION['error']);
-                    foreach ($errors_array as $err) {
-                        echo "<div class='alert alert-danger'>$err</div>";
-                    }
-                    unset($_SESSION['error']);
-                endif;
-                ?>
-
-                <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST" autocomplete="off">  
-                    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-
-                    <div class="form-group">
-                        <label>First Name</label>
-                        <input type="text" name="fname" class="form-control" value="<?php echo isset($fname) ? htmlspecialchars($fname) : ''; ?>" required>
+                <div class="card card-primary card-outline mb-4">
+                    <div class="card-header">
+                        <div class="card-title">User Information</div>
                     </div>
 
-                    <div class="form-group">
-                        <label>Last Name</label>
-                        <input type="text" name="lname" class="form-control" value="<?php echo isset($lname) ? htmlspecialchars($lname) : ''; ?>" required>
-                    </div>
+                    <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST"
+                        autocomplete="off">
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
 
-                    <div class="form-group">
-                        <label>User Name</label>
-                        <input type="text" name="user" class="form-control" value="<?php echo isset($user) ? htmlspecialchars($user) : ''; ?>" required>
-                    </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">First Name</label>
+                                    <input type="text" name="fname" class="form-control" placeholder="Enter first name"
+                                        value="<?php echo isset($fname) ? htmlspecialchars($fname) : ''; ?>" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Last Name</label>
+                                    <input type="text" name="lname" class="form-control" placeholder="Enter last name"
+                                        value="<?php echo isset($lname) ? htmlspecialchars($lname) : ''; ?>" required>
+                                </div>
+                            </div>
 
-                    <div class="form-group password-container">
-                        <label>Password</label>
-                        <input type="password" name="password" id="password" class="form-control" required>
-                        <i class="fa-solid fa-eye toggle-password" onclick="toggleVisibility('password', this)"></i>
-                        <small class="text-muted">Min 8 chars, 1 uppercase, 1 number.</small>
-                    </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Username</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">@</span>
+                                    <input type="text" name="user" class="form-control" placeholder="username_only"
+                                        value="<?php echo isset($user) ? htmlspecialchars($user) : ''; ?>" required>
+                                </div>
+                                <div class="form-text text-info small">Lowercase, numbers and underscores only.</div>
+                            </div>
 
-                    <div class="form-group password-container">
-                        <label>Confirm Password</label>
-                        <input type="password" name="confirm_password" id="confirm_password" class="form-control" required>
-                        <i class="fa-solid fa-eye toggle-password" onclick="toggleVisibility('confirm_password', this)"></i>
-                    </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Password</label>
+                                    <div class="input-group">
+                                        <input type="password" name="password" id="password" class="form-control"
+                                            placeholder="Min 8 characters" required>
+                                        <button class="btn btn-outline-secondary" type="button"
+                                            onclick="toggleVisibility('password')">
+                                            <i class="bi bi-eye" id="password_icon"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Confirm Password</label>
+                                    <div class="input-group">
+                                        <input type="password" name="confirm_password" id="confirm_password"
+                                            class="form-control" placeholder="Repeat password" required>
+                                        <button class="btn btn-outline-secondary" type="button"
+                                            onclick="toggleVisibility('confirm_password')">
+                                            <i class="bi bi-eye" id="confirm_password_icon"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
 
-                    <div class="form-group">
-                        <label>User Role</label>
-                        <select class="form-control" name="role">
-                            <option value="0" <?php echo (isset($role) && $role == 0) ? 'selected' : ''; ?>>Normal User</option>
-                            <option value="1" <?php echo (isset($role) && $role == 1) ? 'selected' : ''; ?>>Admin</option>
-                        </select>
-                    </div>
-
-                    <input type="submit" name="save" class="btn btn-primary" value="Save" />
-                    <a href="users.php" class="btn btn-default">Cancel</a>
-                </form>
-
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">User Role</label>
+                                <select class="form-select" name="role">
+                                    <option value="0" <?php echo (isset($role) && $role == 0) ? 'selected' : ''; ?>>Normal
+                                        User (Editor/Author)</option>
+                                    <option value="1" <?php echo (isset($role) && $role == 1) ? 'selected' : ''; ?>>Admin
+                                        (Full Access)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button type="submit" name="save" class="btn btn-primary px-4">Create User</button>
+                            <a href="users.php" class="btn btn-secondary px-4">Cancel</a>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-
-
 <?php
-if (isset($conn)) {
-    mysqli_close($conn);
-}
-include "footer.php";
+include_once __DIR__ . "/includes/footer.php";
 ?>

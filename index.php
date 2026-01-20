@@ -1,203 +1,245 @@
 <?php
 session_start();
-include 'header.php';
 include 'config.php';
+include 'header.php';
+
 //--- Pagination Setup---
 $limit = 5;
 
-// Set the current page number, ensuring it's an integer and at least 1
+// Set the current page number
 $page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
 if ($page < 1) {
-    //if anyone try to access page less than 1 then redirect to page 1 and show error
     $_SESSION['error'] = "⚠️ **Page Not Found:** You tried to access page " . ($page) . ", but it does not exist.";
-    header("Location: $_SERVER[PHP_SELF]?page=" . 1);
-    exit(); // CRITICAL: Stop script so redirect happens immediately
+    header("Location: $_SERVER[PHP_SELF]?page=1");
+    exit();
 }
 
-//Calculate Offset
+// Calculate Offset
 $offset = ($page - 1) * $limit;
 
-
-//--- Calculate total records --
-
-//check connection
+// Check DB connection
 if (!$conn) {
     $_SESSION['error'] = "⚠️ **Database Connection Error:** We are currently unable to connect to the database. Please try again later.";
     header("Location: error-page.php");
     exit();
-} else {
-    //count SQL
-    // Count query matches the filter so pagination links are accurate
-    $countSql = "SELECT COUNT(post_id) AS total_posts FROM post p";
-    $countResult = mysqli_query($conn, $countSql);
+}
 
+// Count total approved records
+$countSql = "SELECT COUNT(post_id) AS total_posts FROM post WHERE status = 'approved'";
+$countResult = mysqli_query($conn, $countSql);
 
-    //By default total records and pages will be 0
-    $total_records = 0;
-    $total_pages = 0;
+$total_posts = 0;
+$total_pages = 0;
 
-    if ($countResult && mysqli_num_rows($countResult) > 0) {
-        // Get total number of users
-        $countrow = mysqli_fetch_assoc($countResult); //here row is an associative array that contains total_users as key
-        $total_posts = $countrow['total_posts'];
-        $total_pages = ceil($total_posts / $limit); //eg: 45/10 =4.5 =>5 page, 0.4= 1 page
+if ($countResult && mysqli_num_rows($countResult) > 0) {
+    $countrow = mysqli_fetch_assoc($countResult);
+    $total_posts = $countrow['total_posts'];
+    $total_pages = ceil($total_posts / $limit);
 
-        // Ensure the current page doesn't exceed the total pages 
-        // (e.g., if a record was deleted)
-        if ($page > $total_pages && $total_pages > 0) {
-            //if anyone try to access page more than total pages then redirect to last page and show error
-            $_SESSION['error'] = "⚠️ **Page Not Found:** You tried to access page " . ($page) . ", but it does not exist.";
-            header("Location: index.php?page=" . $total_pages);
-            exit(); // CRITICAL: Stop script so redirect happens immediately
-        }
+    if ($page > $total_pages && $total_pages > 0) {
+        $_SESSION['error'] = "⚠️ **Page Not Found:** You tried to access page " . ($page) . ", but it does not exist.";
+        header("Location: index.php?page=" . $total_pages);
+        exit();
     }
 }
+
 ?>
 
-<div id="main-content">
+<!--==== Breaking News Panel ===== -->
+<div id="breaking-news" class="bg-danger text-white py-2">
     <div class="container">
+        <div class="row breaking_news_container">
+            <div class="col-md-2"><strong>Breaking News:</strong></div>
+            <div class="col-md-10 breaking_lines">
+                <marquee behavior="scroll" direction="left" onmouseover="this.stop();" onmouseout="this.start();">
+                    <?php
+                    $breaking_sql = "SELECT post_id, title FROM post WHERE is_breaking = 1 AND status = 'approved' ORDER BY published_at DESC LIMIT 5";
+                    $breaking_result = mysqli_query($conn, $breaking_sql);
+
+                    while ($b_row = mysqli_fetch_assoc($breaking_result)) {
+                        echo "<a href='single.php?id={$b_row['post_id']}' class='text-white breaking_text me-4' style='text-decoration:none;'>● {$b_row['title']}</a>";
+                    }
+                    ?>
+                </marquee>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="main-content" class="mt-4">
+    <div class="container">
+
+        <!-- Featured Section -->
+        <div class="featured-section mb-5 pb-4 border-bottom">
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h2 class="page-heading home-page-heading">Featured Stories</h2>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <?php
+                $featured_sql = "SELECT p.post_id, p.title, p.post_img, c.category_name 
+                                  FROM post p 
+                                  LEFT JOIN category c ON p.category = c.category_id 
+                                  WHERE p.is_featured = 1 AND p.status = 'approved'
+                                  ORDER BY p.published_at DESC LIMIT 6";
+
+                $featured_res = mysqli_query($conn, $featured_sql);
+                while ($f_row = mysqli_fetch_assoc($featured_res)) {
+                    ?>
+                    <div class="col-md-4">
+                        <div class="featured-post-box shadow-sm border rounded overflow-hidden mb-3">
+                            <a href="single.php?id=<?php echo $f_row['post_id']; ?>" class="featured-link">
+                                <div class="featured-img-wrapper">
+                                    <img src="admin/upload/<?php echo $f_row['post_img']; ?>" class="featured-img"
+                                        alt="<?php echo htmlspecialchars($f_row['title']); ?>">
+                                    <div class="overlay">
+                                        <span class="overlay-text">View Post</span>
+                                    </div>
+                                </div>
+                                <div class="p-3 bg-white featured-content">
+                                    <span class="label label-danger">
+                                        <?php echo $f_row['category_name']; ?>
+                                    </span>
+                                    <h4 class="mt-2 featured-title">
+                                        <?php echo $f_row['title']; ?>
+                                    </h4>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                <?php } ?>
+            </div>
+        </div>
+        <!-- /Featured Section -->
+
         <div class="row">
+            <div class="col-md-12">
+                <h2 class="page-heading home-page-heading">Latest News</h2>
+            </div>
             <div class="col-md-8">
                 <?php
-                //show error message if any
                 if (isset($_SESSION['error'])) {
                     echo '<div class="alert alert-danger">' . $_SESSION['error'] . '</div>';
                     unset($_SESSION['error']);
                 }
                 ?>
-                <!-- post-container -->
+
                 <div class="post-container">
                     <?php
-                    //first check if connection is established or not
                     if ($conn):
-                        // Fetch users from database and display here 
-                        $sql = "SELECT p.post_id, p.title, p.description, p.post_date, p.post_img, 
-                            u.username, p.author, c.category_name, p.category
-                            FROM post p
-                            LEFT JOIN category c ON p.category = c.category_id
-                            LEFT JOIN user u ON p.author = u.user_id
-                            ORDER BY p.post_date ASC
-                            LIMIT {$limit} OFFSET {$offset}";
+                        $sql = "SELECT p.post_id, p.title, p.description, p.published_at, p.post_img, 
+                                    u.username, p.author, c.category_name, p.category
+                                FROM post p
+                                LEFT JOIN category c ON p.category = c.category_id
+                                LEFT JOIN user u ON p.author = u.user_id
+                                WHERE p.status = 'approved'
+                                ORDER BY p.published_at DESC
+                                LIMIT {$limit} OFFSET {$offset}";
 
                         $result = mysqli_query($conn, $sql);
 
                         if (!$result):
-                            $_SESSION['error'] = "Error fetching posts: " . mysqli_error($conn);
-                            header("Location: $_SERVER[PHP_SELF]");
-                            mysqli_close($conn);
+                            echo '<div class="alert alert-danger">Error fetching posts.</div>';
                         else:
                             if (mysqli_num_rows($result) > 0):
-                                $id_no = $offset + 1;
-
                                 while ($row = mysqli_fetch_assoc($result)):
-                                    $id = $row['post_id'];
-                                    $title = $row['title'];
-                                    $description = $row['description'];
-                                    $author = $row['username'];
-                                    $user_id = $row['author'];
-                                    $category_id = $row['category'];
-                                    $category = $row['category_name'];
-                                    $date = $row['post_date'];
-                                    $post_img = $row['post_img'];
                                     ?>
-                                    <div class="post-content">
-                                        <div class="row">
+                                    <div class="latest-news-box">
+                                        <div class="row g-3 align-items-center">
                                             <div class="col-md-4">
-                                                <a class="post-img" href="single.php?id=<?php echo htmlspecialchars($id); ?>"><img
-                                                        src="admin/upload/<?php echo htmlspecialchars($post_img); ?>"
-                                                        alt="<?php echo htmlspecialchars($title); ?>" /></a>
+                                                <a class="latest-img" href="single.php?id=<?php echo $row['post_id']; ?>">
+                                                    <img src="admin/upload/<?php echo $row['post_img']; ?>"
+                                                        alt="<?php echo htmlspecialchars($row['title']); ?>">
+                                                </a>
                                             </div>
+
                                             <div class="col-md-8">
-                                                <div class="inner-content clearfix">
-                                                    <h3><a
-                                                            href='single.php?id=<?php echo htmlspecialchars($id); ?>'><?php echo htmlspecialchars($title); ?></a>
+                                                <div class="latest-content">
+                                                    <h3 class="latest-title">
+                                                        <a href="single.php?id=<?php echo $row['post_id']; ?>">
+                                                            <?php echo htmlspecialchars($row['title']); ?>
+                                                        </a>
                                                     </h3>
-                                                    <div class="post-information">
+
+                                                    <div class="latest-meta">
                                                         <span>
-                                                            <i class="fa fa-tags" aria-hidden="true"></i>
-                                                            <a
-                                                                href='category.php?c_id=<?php echo htmlspecialchars($category_id); ?>'><?php echo htmlspecialchars($category); ?></a>
+                                                            <i class="fa fa-tags"></i>
+                                                            <a href="category.php?c_id=<?php echo $row['category']; ?>">
+                                                                <?php echo htmlspecialchars($row['category_name']); ?>
+                                                            </a>
                                                         </span>
                                                         <span>
-                                                            <i class="fa fa-user" aria-hidden="true"></i>
-                                                            <a
-                                                                href='author.php?aid=<?php echo htmlspecialchars($user_id); ?>'><?php echo htmlspecialchars($author); ?></a>
+                                                            <i class="fa fa-user"></i>
+                                                            <a href="author.php?aid=<?php echo $row['author']; ?>">
+                                                                <?php echo htmlspecialchars($row['username']); ?>
+                                                            </a>
                                                         </span>
                                                         <span>
-                                                            <i class="fa fa-calendar" aria-hidden="true"></i>
-                                                            <?php echo htmlspecialchars($date); ?>
+                                                            <i class="fa fa-calendar"></i>
+                                                            <?php echo date("d M, Y", strtotime($row['published_at'])); ?>
                                                         </span>
                                                     </div>
-                                                    <p class="description">
-                                                        <?php //here we use substr function to truncate the description, it will truncate the description from 0th character to 130th character. ?>
-                                                        <?php echo nl2br(substr(htmlspecialchars($description), 0, 130)) . '...'; ?>
-                                                    </p>
-                                                    <a class='read-more pull-right'
-                                                        href='single.php?id=<?php echo htmlspecialchars($id); ?>'>read more</a>
+
+                                                    <div class="latest-desc posts_container_desc">
+                                                        <?php echo substr(strip_tags($row['description']), 0, 160) . '...'; ?>
+                                                    </div>
+
+                                                    <a class="latest-read-more" href="single.php?id=<?php echo $row['post_id']; ?>">
+                                                        Read Full Story →
+                                                    </a>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
+
                                     <?php
-                                    $id_no++;
                                 endwhile;
                             else:
-                                echo "<p>No records found.</p>";
+                                echo "<p class='alert alert-warning'>No records found.</p>";
                             endif;
-                            //close the connection
-                            mysqli_close($conn);
                         endif;
                     endif;
                     ?>
-                    <ul class='pagination'>
-                        <?php
-                        // pagination links code
-                        if ($total_pages > 1):
-                            //Previous Page
-                            if ($page > 1):
-                                echo '<li class="prev"><a href=" ' . $_SERVER['PHP_SELF'] . '?page=' . ($page - 1) . ' " >Prev</a></li>';
+
+                    <!-- Pagination -->
+                    <nav aria-label="Page navigation" class="mt-5">
+                        <ul class='pagination justify-content-center'>
+                            <?php
+                            if ($total_pages > 1):
+                                if ($page > 1):
+                                    echo '<li class="page-item"><a class="page-link text-dark" href="' . $_SERVER['PHP_SELF'] . '?page=' . ($page - 1) . '">Previous</a></li>';
+                                endif;
+
+                                $range = 2;
+                                $start = max(1, $page - $range);
+                                $end = min($total_pages, $page + $range);
+
+                                for ($i = $start; $i <= $end; $i++):
+                                    $active = ($i == $page) ? "active bg-danger border-danger" : "";
+                                    $text_color = ($i == $page) ? "text-white" : "text-dark";
+                                    echo '<li class="page-item ' . $active . '"><a class="page-link ' . $text_color . '" href="' . $_SERVER['PHP_SELF'] . '?page=' . $i . '">' . $i . '</a></li>';
+                                endfor;
+
+                                if ($page < $total_pages):
+                                    echo '<li class="page-item"><a class="page-link text-dark" href="' . $_SERVER['PHP_SELF'] . '?page=' . ($page + 1) . '">Next</a></li>';
+                                endif;
                             endif;
+                            ?>
+                        </ul>
+                    </nav>
+                </div>
 
-                            //Show Page numbers
-                            $range = 2;
-                            //eg. if current page is 3, start will 3-2 = 1 (pagination: ..12 3 45)
-                            $start = max(1, $page - $range);
-                            $end = min($total_pages, $page + $range);
-
-                            // Start Ellipsis
-                            if ($start > 1):
-                                echo '<li><a href="post.php?page=1">1</a></li>';
-                                if ($start > 2)
-                                    echo '<li><span>...</span></li>';
-                            endif;
-
-                            // Truncation logic (first page and ellipsis)
-                            for ($i = $start; $i <= $end; $i++):
-                                $active = ($i == $page) ? "active" : "";
-                                echo '<li class=" ' . $active . ' "><a href=" ' . $_SERVER['PHP_SELF'] . '?page=' . $i . ' " >' . $i . '</a></li>';
-                            endfor;
-
-
-                            // End Ellipsis
-                            if ($end < $total_pages):
-                                if ($end < $total_pages - 1)
-                                    echo '<li><span>...</span></li>';
-                                echo '<li><a href="post.php?page=' . $total_pages . '">' . $total_pages . '</a></li>';
-                            endif;
-
-                            //next page
-                            if (1 < $total_pages && $page < $total_pages):
-                                echo '<li class="next"><a href=" ' . $_SERVER['PHP_SELF'] . '?page=' . ($page + 1) . ' " >Next</a></li>';
-                            endif;
-                        else:
-                            echo "<p> All Records Are Shown</p>";
-                        endif;
-                        ?>
-                    </ul>
-                </div><!-- /post-container -->
             </div>
+
+            <style>
+               
+            </style>
+
             <?php include 'sidebar.php'; ?>
         </div>
     </div>
 </div>
+
 <?php include 'footer.php'; ?>

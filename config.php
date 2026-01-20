@@ -6,11 +6,15 @@
 //     header("Location: post.php");
 // }
 //if admin proceed to connect to database
-$hostname = "localhost";
+$hostname = "http://localhost/PHP%20Basic%202025/news-template/news-template/";
+$servername = "localhost";
 $username = "root";
 $password = "";
 $database = "news-site";
 
-$conn = mysqli_connect($hostname, $username, $password, $database) or die("Connection Failed");
+$conn = mysqli_connect($servername, $username, $password, $database) or die("Connection Failed");
+
+// FORCE UTF-8 (Bangla support)
+mysqli_set_charset($conn, "utf8mb4");
 
 ?>
