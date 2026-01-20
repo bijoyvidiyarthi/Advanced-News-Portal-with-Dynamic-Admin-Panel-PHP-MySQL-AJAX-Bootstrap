@@ -3,7 +3,7 @@ session_start();
 include 'config.php';
 include 'header.php';
 
-//--- Pagination Setup---
+//---> Pagination Setup---
 $limit = 5;
 
 // Set the current page number

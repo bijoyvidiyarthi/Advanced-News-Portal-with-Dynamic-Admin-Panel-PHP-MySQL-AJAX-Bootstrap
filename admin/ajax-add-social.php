@@ -7,7 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $icon_class = mysqli_real_escape_string($conn, $_POST['icon_class']);
     $platform_url = mysqli_real_escape_string($conn, $_POST['platform_url']);
     $csrf_token = $_POST['csrf_token'];
-
+ //ss
     // validation
     if ($csrf_token !== $_SESSION['csrf_token']) {
         echo json_encode(['status' => 'error', 'message' => 'Security Error: CSRF token mismatch!']);
